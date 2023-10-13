@@ -1,0 +1,122 @@
+---
+title: What is the association between sleep quality and pain (presence and intensity)
+  in older adults?
+author: "Pedro Henrique Brant"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+In this manuscript, we're going to conduct an analysis into the ELSI Dataset. This is a modified version for usage in the Principles and Practice of Clinical Research program of Harvard T.H. Chan School of Public Health.
+
+The aim here is to replicate the analysis done in a [previous paper](https://pubmed.ncbi.nlm.nih.gov/34968438/) and see if the results also apply to the sample that was included in the [ELSI Brazil](https://elsi.cpqrr.fiocruz.br/en/home-english/).
+
+First order of business is to download the dataset we're going to be analysing, which was kindly provided by PPCR staff
+
+```{r}
+
+library(tidyverse)
+require(haven)
+url <- 'https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/T9gKrWnaRr5K0yT/FINAL%20-%20ELSI_students.dta'
+PPCRdata <- read_dta(url)
+rm(url)
+PPCRdata <- as_tibble(PPCRdata)
+PPCRdata
+
+```
+PPCR Staff has described the variables included in this dataset with the following:
+![Variables in modified dataset](https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/3Rq88vSRw93ITf6/Screen%20Shot%202023-10-04%20at%201.03.35%20PM.png)
+
+Let's then simplify our data so that it's more readable, only selecting the variables which are important:
+
+```{r}
+PPCRdata <- PPCRdata %>% select(id2, pain, p_intensity, p_opioids, sleepquality, sleepproblems, sleepmeds)
+PPCRdata
+```
+Let's now look at the individual variables to understand what they mean
+```{r}
+unique(PPCRdata$pain)
+unique(PPCRdata$p_intensity)
+unique(PPCRdata$p_opioids)
+unique(PPCRdata$sleepquality)
+unique(PPCRdata$sleepproblems)
+unique(PPCRdata$sleepmeds)
+```
+We can then see that *pain* is a binary variable, *p_intensity* is an ordinal variable with three values, *p_opioids* is a binary variable, *sleepquality* is an ordinal variable with five possible values, *sleepproblems* is a binary variable and *sleepmeds* is an ordinal variable with four different possible values.
+
+Next step is to start data analysis. The original paper did not include any data imputation, therefore, we're not going to either. 
+
+Let's start with the association between *sleepproblems* and *pain*. These two variables are binary, therefore, it's best to conduct a chi-square test in order to determine if these variables are associated with each other. Let's prepare the data for a chi-square test by building a contingency table.
+
+```{r}
+onlyPainSleepProblems <- PPCRdata %>% select(pain,sleepproblems)
+
+## removing incomplete observations and creating table
+contigencyPainSleepProblems <- 
+        table(onlyPainSleepProblems[complete.cases(onlyPainSleepProblems),]) 
+contigencyPainSleepProblems
+```
+
+Now, all that is left is to conduct the chi-square test.
+
+```{r}
+chiPainSleepproblems <- chisq.test(contigencyPainSleepProblems)
+chiPainSleepproblems
+```
+
+As the p-value was smaller than 0.05, we can reject the null-hypothesis that there is no association between these two variables.
+Let's check the phi value to determine the direction of the association
+
+```{r}
+require(effectsize)
+phi(contigencyPainSleepProblems)
+```
+```{r echo=FLASE, results = 'hide'}
+rm (contigencyPainSleepProblems)
+```
+We can conclude that there is a positive association between these two variables. Or, in more simple terms, that the elderly that have chronic pain are more likely to have sleep problems.
+
+Continuing, we can look at the association between the variables *p_intensity* and *sleepproblems* to see if the latter can predict the first. To do so, we're going to build an ordered logistic regression.
+
+```{r}
+require(MASS)
+p_intensityFactor <- PPCRdata
+p_intensityFactor$p_intensity <- ordered(p_intensityFactor$p_intensity)
+modelP_intensitySleepproblems <- polr(p_intensity ~ sleepproblems,
+                                     data = p_intensityFactor,
+                                     Hess = TRUE)
+summary(modelP_intensitySleepproblems)
+ctable <- coef(summary(modelP_intensitySleepproblems))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable <- cbind(ctable, "p value" = p)
+ctable
+```
+As the p-value was lower than 0.05, we can reject the null that these variables aren't associated. By considering the estimate, we can interpret that there is a 0.6294 increase in the log odds of p_intensity for patients that have sleep problems.
+
+As the interpretation to the above is a little difficult (due to the log odds), let's calculate odds ratios.
+
+```{r}
+OR <- exp(coef(modelP_intensitySleepproblems))
+OR
+```
+
+Therefore, for subjects who do have sleep problems, the odds of having pain that is more intense is 1.87.
+
+```{r, echo = FALSE, results='hide'}
+rm(OR,ctable)
+```
+
+Let's run a final analysis to see if *p_opioids* is associated with *sleepmeds*. Since *p_opioids* is a binary variable and *sleepmeds* is ordinal, in order to use *p_opioids* as the dependent variable, we're going to run a logistic regression and turn *sleepmeds* into a categorical variable.
+
+```{r}
+sleepmedsFactor <- PPCRdata
+sleepmedsFactor$sleepmeds <- factor(sleepmedsFactor$sleepmeds, levels = c(1,2,3,4,9), labels = c("No", "Less than once a week", "1 or 2 times a week", "3 or more times a week", "Didn't know/didn't answer"))
+modelp_opioidsSleepmeds <- glm(p_opioids ~ sleepmeds,
+                                     data = sleepmedsFactor,
+                                     family = "binomial")
+summary(modelp_opioidsSleepmeds)
+exp(cbind(OR = coef(modelp_opioidsSleepmeds), confint(modelp_opioidsSleepmeds)))
+```
+
+We can interpret the above as the odds of using opioid medications together with sleep medications less than once week being 2.27 times the odds of using opioid medications and not using sleep medications at all. It also shows that, for every level of usage of sleep medication, there is a positive association with opioid usage, when compared to subjects who do not use sleep medication at all.
+
+A limitation regarding all of these analyses is that they're not adjusted for covariates.
