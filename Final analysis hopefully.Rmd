@@ -1,0 +1,234 @@
+---
+title: Association between sleep quality and pain in older
+  adults
+author: "Pedro Henrique Brant"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Introduction
+
+In this manuscript, we're going to conduct an analysis into the ELSI Dataset. This is a modified version for usage in the Principles and Practice of Clinical Research program of Harvard T.H. Chan School of Public Health.
+
+The aim here is to replicate the analysis done in a [previous paper](https://pubmed.ncbi.nlm.nih.gov/34968438/) and see if the results also apply to the sample that was included in the [ELSI Brazil](https://elsi.cpqrr.fiocruz.br/en/home-english/).
+
+First order of business is to download the dataset we're going to be analyzing, which was kindly provided by PPCR staff.
+
+```{r, message=FALSE, warning=FALSE}
+## Loading the necessary libraries
+library(tidyverse)
+library(haven)
+```
+
+```{r}
+
+## Url provided by PPCR staff
+url <- 'https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/T9gKrWnaRr5K0yT/FINAL%20-%20ELSI_students.dta'
+
+## Using the read_dta function from haven to read the .dta file created in STATA
+PPCRdata <- read_dta(url)
+
+## Removing the url from memory as it is no longer useful
+rm(url)
+
+## Transforming to tibble in order to increase readability
+PPCRdata <- as_tibble(PPCRdata)
+PPCRdata
+
+```
+
+PPCR Staff has described the variables included in this dataset with the following:
+![Variables in modified dataset](https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/3Rq88vSRw93ITf6/Screen%20Shot%202023-10-04%20at%201.03.35%20PM.png)
+
+## Adjusting Variables for the Analysis
+
+Let's now look at the some of the individual variables to understand what they mean
+```{r}
+unique(PPCRdata$pain)
+unique(PPCRdata$p_intensity)
+unique(PPCRdata$sleepquality)
+unique(PPCRdata$sleepproblems)
+```
+
+We can then see that *pain* and *sleepproblems* are binary variables, while *p_intensity* and *sleepquality* are ordinal variables, although they aren't coded in this manner yet.
+
+Now let's transform *p_intensity* and *sleepquality* into ordinal variables and *pain* and *sleepproblems* into binary variables, as they were read as numerical variables with labels.
+
+```{r}
+## Using the as_factor function from haven to transform the variables 
+## with the labels as names for the levels in the factors
+PPCRdata$sleepquality <- as_factor(PPCRdata$sleepquality, ordered = TRUE)
+PPCRdata$p_intensity <- as_factor(PPCRdata$p_intensity, ordered = TRUE)
+PPCRdata$pain <- as_factor(PPCRdata$pain)
+PPCRdata$sleepproblems <- as_factor(PPCRdata$sleepproblems)
+
+
+levels(PPCRdata$sleepquality)
+levels(PPCRdata$p_intensity)
+levels(PPCRdata$pain)
+levels(PPCRdata$sleepproblems)
+
+## Reversing the order of factors, as initially the order was wrong in sleepquality
+PPCRdata$sleepquality <- fct_rev(PPCRdata$sleepquality)
+levels(PPCRdata$sleepquality)
+
+```
+
+Other variables that we're going to use in our model that haven't been coded properly as well include: *depression*, *sex*, *alcohol*, *fracture*, *cancer*, *diabetes*, *dementia*, *arthritis*, *heartdisease* and *lungdisease*.
+```{r}
+## Showing that the variables are coded as numerical variables
+unique(PPCRdata$depression)
+unique(PPCRdata$sex)
+unique(PPCRdata$alcohol)
+unique(PPCRdata$fracture)
+unique(PPCRdata$cancer)
+unique(PPCRdata$diabetes)
+unique(PPCRdata$dementia)
+unique(PPCRdata$arthritis)
+unique(PPCRdata$heartdisease)
+unique(PPCRdata$lungdisease)
+
+## Using the as_factor function from haven to transform the variables 
+## with the labels as names for the levels in the factors
+PPCRdata$depression <- as_factor(PPCRdata$depression)
+PPCRdata$sex <- as_factor(PPCRdata$sex)
+PPCRdata$alcohol <- as_factor(PPCRdata$alcohol)
+PPCRdata$fracture <- as_factor(PPCRdata$fracture)
+PPCRdata$cancer <- as_factor(PPCRdata$cancer)
+PPCRdata$diabetes <- as_factor(PPCRdata$diabetes)
+PPCRdata$dementia <- as_factor(PPCRdata$dementia)
+PPCRdata$arthritis <- as_factor(PPCRdata$arthritis)
+PPCRdata$heartdisease <- as_factor(PPCRdata$heartdisease)
+PPCRdata$lungdisease <- as_factor(PPCRdata$lungdisease)
+```
+For completeness, let's check all of the variables we're going to use together in a summary
+```{r}
+PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,sleepproblems,depression,
+                    alcohol,fracture,cancer,diabetes,dementia,arthritis,
+                    heartdisease,lungdisease) %>% summary()
+```
+At this point we have coded all the variables correctly, so we can proceed with the analysis.
+
+## Analysis
+### Association between *pain* and *sleepquality*
+#### Unadjusted Analysis
+This analysis checks for the association between the *pain* variable and the *sleepquality* variable, without adjustments. As *pain* is a binary variable, we're going to run a logistic regression.
+
+```{r}
+## using the generalized linear model function 
+## with the family = "binomial" to create a logistical
+## regression
+model0 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
+               family = "binomial")
+summary(model0)
+```
+
+The interpretation of this model regarding our main independent variable, *sleepquality*, is hard to do, as the model is considering it as ordinal. Let's run it again with the model considering it as categorical.
+
+```{r}
+## changing the variable to categorical
+PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
+
+## running the model
+model2 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
+               family = "binomial")
+summary(model2)
+
+## reestablishing the variable as ordinal
+PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
+```
+
+#### Adjusted Analysis
+This analysis checks for the association between the *pain* variable and the *sleepquality* variable, adjusting the model for age, bmi, comorbidities and depression, as was done in the original article. As *pain* is a binary variable, we're going to run a logistic regression.
+
+```{r}
+model1 <- glm(data = PPCRdata, formula = pain ~ sleepquality + bmi + depression + 
+                       sex + alcohol + fracture + cancer + diabetes + dementia +
+                       arthritis + heartdisease + lungdisease,
+                                                        family = "binomial")
+summary(model1)
+```
+The interpretation of this model regarding our main independent variable, *sleepquality*, is hard to do, as the model is considering it as ordinal. Let's run it again with the model considering it as categorical.
+
+```{r}
+## changing the variable to categorical
+PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
+
+## running the model
+model2 <- glm (data = PPCRdata, formula = pain ~ sleepquality + depression + 
+                       sex + alcohol + fracture + cancer + diabetes + dementia +
+                       arthritis + heartdisease + lungdisease,
+                                                        family = "binomial")
+summary(model2)
+
+## reestablishing the variable as ordinal
+PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
+```
+
+According to the [UCLA Office of Advanced Research Computing (OARC)](https://stats.oarc.ucla.edu/r/dae/logit-regression/), in order to test for an overall effect of the *sleepquality* variable, we can employ the wald.test function from the aod library.
+
+```{r, warning = FALSE}
+library(aod)
+wald.test(b = coef(model2), Sigma = vcov(model2), Terms = 2:5)
+```
+We can also compute the odds-ratios for each variable.
+
+```{r}
+exp(cbind(OR = coef(model2), confint(model2)))
+```
+
+#### Testing the assumptions of the model
+
+At this point, I haven't yet learned how to properly test for the assumptions of the logistic regression model. On a later opportunity, I'll try to remedy this situation. For now, I'll include some commands that were listed as useful in the [R you ready for R?](https://bookdown.org/wadetroberts/r-you-ready-for-r/multiple-logistic-regression.html#model-fit-statistics-for-multiple-logistic-regression) e-book. 
+
+```{r warning= FALSE}
+library(blorr)
+blr_model_fit_stats(model2)
+blr_test_hosmer_lemeshow(model2)
+blr_roc_curve(blr_gains_table(model2))
+car::vif(model2)
+```
+
+### Association between *sleepquality* and *pain*
+
+In order to do this analysis I'll try to follow the instructions from the [UCLA OARC - Ordinal Logistic Regression | R Data Analysis Example](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/).
+
+As the original article by [Montelhão et al](https://pubmed.ncbi.nlm.nih.gov/34968438/) tested for bidirectional associations, let's try to replicate that as well. In this case, the dependent variable is ordinal, therefore we will run an ordinal logistical regression.
+
+```{r warning = FALSE, message = FALSE}
+## loading the library required to run the model
+library(MASS)
+
+## running the model
+model3 <- polr (data = PPCRdata, formula = sleepquality ~ pain + depression + 
+                       sex + alcohol + fracture + cancer + diabetes + dementia +
+                       arthritis + heartdisease + lungdisease, Hess = TRUE)
+summary(model3)
+```
+
+In R, this doesn't produce the p-values, so let's add those, as our sample size is large enough that they are reasonable approximations.
+
+```{r}
+## getting the coefficients
+ctable <- coef(summary(model3))
+
+## getting the respective p-values from the normal distribution
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+
+## creating a table with the respective p-values added
+ctable <- cbind(ctable, "p value" = p)
+ctable
+
+## creating confidence intervals
+ci<-confint.default(model3)
+
+## exponentiating the log-odds and the confidence intervals
+## in order to create the odds-ratios and the respective CI's
+exp(cbind(OR = coef(model3), ci))
+
+```
+
+#### Testing for the Proportional Odds Assumption
+
+This is something to consider further on. At this point, I haven't yet figured out exactly how to do it, but I'll try to follow the instructions from the [Office of Advanced Research Computing](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/) on another day.
+
