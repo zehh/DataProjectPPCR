@@ -322,7 +322,11 @@ car::vif(model4)
 ```
 
 ### Association between *sleepquality* and *pain*
+#### Unadjusted Analysis
 
+Still not done at this point.
+
+#### Adjusted Analysis
 In order to do this analysis I'll try to follow the instructions from the [UCLA OARC - Ordinal Logistic Regression | R Data Analysis Example](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/).
 
 As the original article by [Montelhão et al](https://pubmed.ncbi.nlm.nih.gov/34968438/) tested for bidirectional associations, let's try to replicate that as well. In this case, the dependent variable is ordinal, therefore we will run an ordinal logistical regression.
