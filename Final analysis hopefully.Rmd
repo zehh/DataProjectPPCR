@@ -1,9 +1,10 @@
 ---
-title: Association between sleep quality and pain in older
-  adults
+title: "Association between sleep quality and pain in older adults"
 author: "Pedro Henrique Brant"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ## Introduction
@@ -18,6 +19,9 @@ First order of business is to download the dataset we're going to be analyzing, 
 ## Loading the necessary libraries
 library(tidyverse)
 library(haven)
+library(broom)
+library(ggplot2)
+library(lmtest)
 ```
 
 ```{r}
@@ -123,31 +127,140 @@ model0 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
 summary(model0)
 ```
 
-The interpretation of this model regarding our main independent variable, *sleepquality*, is hard to do, as the model is considering it as ordinal. Let's run it again with the model considering it as categorical.
+As the independent variable is coded as ordinal, the interpretation isn't completely straightforward. To make it simpler, let's start by calculating confidence intervals (CI) and then exponentiating them together with the coefficients to obtain the odds ratios and their respective CI's.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+
+## coef(model0) extracts the coefficients from the model
+## confint(model0) calculates confidence intervals (95%)
+## cbind then creates a table by joining the two by column
+## finally, we exponentiate all the results using the base e
+## in order to transform logit units into regular units
+
+exp(cbind(OR = coef(model0),confint(model0)))
+
+## another way, which is simpler and does the same, is to use
+## the broom::tidy function
+
+model0Tidy <- tidy(model0, conf.int = TRUE, exponentiate = TRUE)
+model0Tidy %>% rename(Odds.Ratio = estimate) -> model0Tidy
+model0Tidy
+
+## let's plot these coefficients and their CI's to increase
+## readability
+
+model0Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
+                geom_point() +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                ## reordering the categorical variables in the
+                ## y-axis to improve readability
+                ## also removing the intercept, as it's not 
+                ## relevant for interpretation
+                scale_y_discrete(limits = c('sleepquality.L',
+                                            'sleepquality.Q',
+                                            'sleepquality.C',
+                                            'sleepquality^4'))
+
+```
+
+The p-value of the term *sleepquality.L* being significant means that there is a statistically significant **linear** association between <u>increasing</u> *sleepquality* values and <u>decreasing</u> the probability of *pain* being present (due to the less than 1 Odds Ratio).
+
+We can also see that our model finds a significant relationship between *sleepquality.C* and *pain*. This finding is a little bit harder to interpret, but according to [this stack overflow post](https://stackoverflow.com/questions/57297771/interpretation-of-l-q-c-4-for-logistic-regression), we can interpret the third order polynomial as [jerk](https://en.wikipedia.org/wiki/Jerk_(physics)).
+
+---
+
+A different approach would be to either consider the variable as continuous or categorical. As we don't have to test for any assumptions in order to consider it categorical, let's proceed with that first.
+
+```{r warning=FALSE}
 ## changing the variable to categorical
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
 
 ## running the model
-model2 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
+model1 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
                family = "binomial")
-summary(model2)
+summary(model1)
+
+## Let's proceed with the same transformations we did 
+## when we built the model with the variable considered
+## as ordinal, in order to improve readability
+
+model1Tidy <- tidy(model1, conf.int = TRUE, exponentiate = TRUE)
+model1Tidy %>% rename(Odds.Ratio = estimate) -> model1Tidy
+model1Tidy
+
+## Let's also plot this one for increased readability
+
+model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
+                geom_point() +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                ## changing the order to increase readability
+                ## and removing the intercept again
+                scale_y_discrete(limits = c('sleepqualityBad',
+                                            'sleepqualityFair',
+                                            'sleepqualityGood',
+                                            'sleepqualityVery good'))
+                
 
 ## reestablishing the variable as ordinal
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
 ```
+This analysis allows us to determine that, when using a reference level of *sleepquality* that is **very bad**, the odds of experiencing *pain* when *sleepquality* increases are significantly lower (the odds ratio of the comparison of each level with very bad sleep quality can be seen in the table above).
+
+---
+
+In this next model, we're going to consider sleepquality as a continuous variable.
+
+```{r}
+## doing the transformation and saving on another variable to not lose the
+## categorical information (names for each level)
+PPCRdata %>% mutate(sleepquality = as.numeric(sleepquality)) -> dataNumeric
+
+## checking to see if it worked properly
+head(dataNumeric$sleepquality)
+```
+Now that the variable is transformed to numeric, let's run the model again.
+
+```{r}
+
+glm (data = dataNumeric, formula = pain ~ sleepquality, 
+     family = "binomial") -> model2
+model2 %>% tidy(confint = TRUE, exponentiate = TRUE) %>% 
+        rename(Odds.Ratio = estimate) -> model2Tidy
+summary(model2)
+model2Tidy
+
+```
+In order to determine which model is best, we're going to be conducting two tests: the Likelihood Ratio Chi-Square Test and the BIC test (as was recommended [here](https://www3.nd.edu/~rwilliam/stats3/OrdinalIndependent.pdf) by Richard Williams of the University of Notre Dame).
+
+```{r}
+lrtest(model1,model2)
+```
+
+The alternative hypothesis for this test 
 
 #### Adjusted Analysis
 This analysis checks for the association between the *pain* variable and the *sleepquality* variable, adjusting the model for age, bmi, comorbidities and depression, as was done in the original article. As *pain* is a binary variable, we're going to run a logistic regression.
 
 ```{r}
-model1 <- glm(data = PPCRdata, formula = pain ~ sleepquality + bmi + depression + 
+model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + bmi + depression + 
                        sex + alcohol + fracture + cancer + diabetes + dementia +
                        arthritis + heartdisease + lungdisease,
                                                         family = "binomial")
-summary(model1)
+summary(model3)
 ```
+
 The interpretation of this model regarding our main independent variable, *sleepquality*, is hard to do, as the model is considering it as ordinal. Let's run it again with the model considering it as categorical.
 
 ```{r}
@@ -155,11 +268,11 @@ The interpretation of this model regarding our main independent variable, *sleep
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
 
 ## running the model
-model2 <- glm (data = PPCRdata, formula = pain ~ sleepquality + depression + 
+model4 <- glm (data = PPCRdata, formula = pain ~ sleepquality + depression + 
                        sex + alcohol + fracture + cancer + diabetes + dementia +
                        arthritis + heartdisease + lungdisease,
                                                         family = "binomial")
-summary(model2)
+summary(model4)
 
 ## reestablishing the variable as ordinal
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
@@ -169,12 +282,12 @@ According to the [UCLA Office of Advanced Research Computing (OARC)](https://sta
 
 ```{r, warning = FALSE}
 library(aod)
-wald.test(b = coef(model2), Sigma = vcov(model2), Terms = 2:5)
+wald.test(b = coef(model4), Sigma = vcov(model4), Terms = 2:5)
 ```
 We can also compute the odds-ratios for each variable.
 
 ```{r}
-exp(cbind(OR = coef(model2), confint(model2)))
+exp(cbind(OR = coef(model4), confint(model4)))
 ```
 
 #### Testing the assumptions of the model
@@ -183,10 +296,10 @@ At this point, I haven't yet learned how to properly test for the assumptions of
 
 ```{r warning= FALSE}
 library(blorr)
-blr_model_fit_stats(model2)
-blr_test_hosmer_lemeshow(model2)
-blr_roc_curve(blr_gains_table(model2))
-car::vif(model2)
+blr_model_fit_stats(model4)
+blr_test_hosmer_lemeshow(model4)
+blr_roc_curve(blr_gains_table(model4))
+car::vif(model4)
 ```
 
 ### Association between *sleepquality* and *pain*
@@ -200,17 +313,17 @@ As the original article by [Montelhão et al](https://pubmed.ncbi.nlm.nih.gov/34
 library(MASS)
 
 ## running the model
-model3 <- polr (data = PPCRdata, formula = sleepquality ~ pain + depression + 
+model5 <- polr (data = PPCRdata, formula = sleepquality ~ pain + depression + 
                        sex + alcohol + fracture + cancer + diabetes + dementia +
                        arthritis + heartdisease + lungdisease, Hess = TRUE)
-summary(model3)
+summary(model5)
 ```
 
 In R, this doesn't produce the p-values, so let's add those, as our sample size is large enough that they are reasonable approximations.
 
 ```{r}
 ## getting the coefficients
-ctable <- coef(summary(model3))
+ctable <- coef(summary(model5))
 
 ## getting the respective p-values from the normal distribution
 p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
@@ -220,11 +333,11 @@ ctable <- cbind(ctable, "p value" = p)
 ctable
 
 ## creating confidence intervals
-ci<-confint.default(model3)
+ci<-confint.default(model5)
 
 ## exponentiating the log-odds and the confidence intervals
 ## in order to create the odds-ratios and the respective CI's
-exp(cbind(OR = coef(model3), ci))
+exp(cbind(OR = coef(model5), ci))
 
 ```
 
