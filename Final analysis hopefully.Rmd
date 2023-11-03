@@ -75,7 +75,7 @@ levels(PPCRdata$sleepquality)
 
 ```
 
-Other variables that we're going to use in our model that haven't been coded properly as well include: *depression*, *sex*, *alcohol*, *fracture*, *cancer*, *diabetes*, *dementia*, *arthritis*, *heartdisease* and *lungdisease*.
+Other variables that we're going to use in our model that haven't been coded properly as well include: *depression*, *alcohol*, *fracture*, *cancer*, *diabetes*, *dementia*, *arthritis*, *heartdisease* and *lungdisease*.
 ```{r}
 ## Showing that the variables are coded as numerical variables
 unique(PPCRdata$depression)
@@ -258,10 +258,10 @@ In order to determine which model is best, we're going to look at the AIC values
 This analysis checks for the association between the *pain* variable and the *sleepquality* variable, adjusting the model for bmi, comorbidities and depression, as was done in the original article. As *pain* is a binary variable, we're going to run a logistic regression.
 
 ```{r}
-model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + bmi + depression + 
-                       sex + alcohol + fracture + cancer + diabetes + dementia +
-                       arthritis + heartdisease + lungdisease,
-                                                        family = "binomial")
+model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + age + bmi + 
+                      depression + alcohol + fracture + cancer + diabetes + 
+                      dementia + arthritis + heartdisease + lungdisease,
+                family = "binomial")
 summary(model3)
 ```
 
@@ -272,10 +272,10 @@ The interpretation of this model regarding our main independent variable, *sleep
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
 
 ## running the model
-model4 <- glm (data = PPCRdata, formula = pain ~ sleepquality + depression + 
-                       sex + alcohol + fracture + cancer + diabetes + dementia +
-                       arthritis + heartdisease + lungdisease,
-                                                        family = "binomial")
+model4 <- glm (data = PPCRdata, formula = pain ~ sleepquality + age + 
+                       depression + alcohol + fracture + cancer + 
+                       diabetes + dementia + arthritis + heartdisease +
+                       lungdisease, family = "binomial")
 summary(model4)
 
 ## reestablishing the variable as ordinal
@@ -309,18 +309,6 @@ model4Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
 
 Here we can see all of the associations with the *pain* variable in our model.
 
-According to the [UCLA Office of Advanced Research Computing (OARC)](https://stats.oarc.ucla.edu/r/dae/logit-regression/), in order to test for an overall effect of the *sleepquality* variable, we can employ the wald.test function from the aod library.
-
-```{r, warning = FALSE}
-library(aod)
-wald.test(b = coef(model4), Sigma = vcov(model4), Terms = 2:5)
-```
-We can also compute the odds-ratios for each variable.
-
-```{r}
-exp(cbind(OR = coef(model4), confint(model4)))
-```
-
 #### Testing the assumptions of the model
 
 At this point, I haven't yet learned how to properly test for the assumptions of the logistic regression model. On a later opportunity, I'll try to remedy this situation. For now, I'll include some commands that were listed as useful in the [R you ready for R?](https://bookdown.org/wadetroberts/r-you-ready-for-r/multiple-logistic-regression.html#model-fit-statistics-for-multiple-logistic-regression) e-book. 
@@ -345,12 +333,17 @@ library(MASS)
 
 ## running the model
 model5 <- polr (data = PPCRdata, formula = sleepquality ~ pain + depression + 
-                       sex + alcohol + fracture + cancer + diabetes + dementia +
+                       alcohol + fracture + cancer + diabetes + dementia +
                        arthritis + heartdisease + lungdisease, Hess = TRUE)
 summary(model5)
 ```
 
-In R, this doesn't produce the p-values, so let's add those, as our sample size is large enough that they are reasonable approximations.
+```{r}
+## tidy(model5, exponentiate = TRUE, p.values = TRUE, conf.int = TRUE)
+```
+
+The tidy function is not working for the polr model, even though it should. I tried to debug it, but couldn't. I will then describe a more manual approach, as was described in the [UCLA Office of Advanced Research Computing (OARC)](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/) page for Ordinal Regression.
+
 
 ```{r}
 ## getting the coefficients
@@ -365,12 +358,27 @@ ctable
 
 ## creating confidence intervals
 ci<-confint.default(model5)
+colnames(ci) <- c("conf.low", "conf.high")
 
 ## exponentiating the log-odds and the confidence intervals
 ## in order to create the odds-ratios and the respective CI's
-exp(cbind(OR = coef(model5), ci))
+model5OddsRatio <- exp(cbind(OR = coef(model5), ci))
+## converting rownames to columns, as this will be necessary to build the plot
+model5OddsRatio <- as_tibble(rownames_to_column(as.data.frame(model5OddsRatio)))
+model5OddsRatio %>% rename(term = rowname) -> model5OddsRatio
 
 ```
+Let's build a plot using these values.
+
+```{r}
+model5OddsRatio %>% ggplot (aes(OR, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                geom_point() +
+                geom_vline(xintercept = 1, lty = 4) +
+                geom_errorbarh()
+```
+
+The plot allows us to visually determine that the presence of *pain* decreases the odds of *sleepquality* being higher. Unfortunately, the model has a high AIC.
 
 #### Testing for the Proportional Odds Assumption
 
