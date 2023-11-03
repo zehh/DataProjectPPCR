@@ -322,10 +322,6 @@ car::vif(model4)
 ```
 
 ### Association between *sleepquality* and *pain*
-#### Unadjusted Analysis
-
-Still not done at this point.
-
 #### Adjusted Analysis
 In order to do this analysis I'll try to follow the instructions from the [UCLA OARC - Ordinal Logistic Regression | R Data Analysis Example](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/).
 
@@ -383,6 +379,47 @@ model5OddsRatio %>% ggplot (aes(OR, term, xmin = conf.low,
 ```
 
 The plot allows us to visually determine that the presence of *pain* decreases the odds of *sleepquality* being higher. Unfortunately, the model has a high AIC.
+
+#### Unadjusted Analysis
+
+In order to be able to compare the adjusted analysis, let's proceed with one that is unadjusted as well.
+
+```{r}
+## this code is equivalent to the one used for the adjusted analysis, just 
+## with no covariates added to the model
+model6 <- polr (data = PPCRdata, formula = sleepquality ~ pain, Hess = TRUE)
+summary(model6)
+
+## getting the coefficients
+ctable2 <- coef(summary(model6))
+
+## getting the respective p-values from the normal distribution
+p <- pnorm(abs(ctable2[, "t value"]), lower.tail = FALSE) * 2
+
+## creating a table with the respective p-values added
+ctable2 <- cbind(ctable2, "p value" = p)
+
+## creating confidence intervals
+ci<-confint.default(model6)
+colnames(ci) <- c("conf.low", "conf.high")
+
+## exponentiating the log-odds and the confidence intervals
+## in order to create the odds-ratios and the respective CI's
+model6OddsRatio <- exp(cbind(OR = coef(model6), ci))
+## converting rownames to columns, as this will be necessary to build the plot
+model6OddsRatio <- as_tibble(rownames_to_column(as.data.frame(model6OddsRatio)))
+model6OddsRatio %>% rename(term = rowname) -> model6OddsRatio
+model6OddsRatio
+
+## building a plot
+model6OddsRatio %>% ggplot (aes(OR, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                geom_point() +
+                geom_vline(xintercept = 1, lty = 4) +
+                geom_errorbarh()
+```
+
+We need to check what the warning means, but the presence of pain reduces the odds of increased sleep quality in this model. THe AIC is huge, as should be expected of a model that only has one predictor and that predictor is a dichotomous variable.
 
 #### Testing for the Proportional Odds Assumption
 
