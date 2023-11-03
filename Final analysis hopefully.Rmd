@@ -21,7 +21,7 @@ library(tidyverse)
 library(haven)
 library(broom)
 library(ggplot2)
-library(lmtest)
+library(gtsummary)
 ```
 
 ```{r}
@@ -44,7 +44,7 @@ PPCRdata
 PPCR Staff has described the variables included in this dataset with the following:
 ![Variables in modified dataset](https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/3Rq88vSRw93ITf6/Screen%20Shot%202023-10-04%20at%201.03.35%20PM.png)
 
-## Adjusting Variables for the Analysis
+### Adjusting Variables for the Analysis
 
 Let's now look at the some of the individual variables to understand what they mean
 ```{r}
@@ -68,9 +68,6 @@ PPCRdata$sleepproblems <- as_factor(PPCRdata$sleepproblems)
 
 
 levels(PPCRdata$sleepquality)
-levels(PPCRdata$p_intensity)
-levels(PPCRdata$pain)
-levels(PPCRdata$sleepproblems)
 
 ## Reversing the order of factors, as initially the order was wrong in sleepquality
 PPCRdata$sleepquality <- fct_rev(PPCRdata$sleepquality)
@@ -82,15 +79,17 @@ Other variables that we're going to use in our model that haven't been coded pro
 ```{r}
 ## Showing that the variables are coded as numerical variables
 unique(PPCRdata$depression)
-unique(PPCRdata$sex)
-unique(PPCRdata$alcohol)
-unique(PPCRdata$fracture)
-unique(PPCRdata$cancer)
-unique(PPCRdata$diabetes)
-unique(PPCRdata$dementia)
-unique(PPCRdata$arthritis)
-unique(PPCRdata$heartdisease)
-unique(PPCRdata$lungdisease)
+
+## Commented the other variables for brevity, but they were all numerical
+## unique(PPCRdata$sex)
+## unique(PPCRdata$alcohol)
+## unique(PPCRdata$fracture)
+## unique(PPCRdata$cancer)
+## unique(PPCRdata$diabetes)
+## unique(PPCRdata$dementia)
+## unique(PPCRdata$arthritis)
+## unique(PPCRdata$heartdisease)
+## unique(PPCRdata$lungdisease)
 
 ## Using the as_factor function from haven to transform the variables 
 ## with the labels as names for the levels in the factors
@@ -104,12 +103,23 @@ PPCRdata$dementia <- as_factor(PPCRdata$dementia)
 PPCRdata$arthritis <- as_factor(PPCRdata$arthritis)
 PPCRdata$heartdisease <- as_factor(PPCRdata$heartdisease)
 PPCRdata$lungdisease <- as_factor(PPCRdata$lungdisease)
+
+## Converting age to numeric
+
+PPCRdata$age <- as.numeric(PPCRdata$age)
 ```
 For completeness, let's check all of the variables we're going to use together in a summary
 ```{r}
 PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,sleepproblems,depression,
                     alcohol,fracture,cancer,diabetes,dementia,arthritis,
-                    heartdisease,lungdisease) %>% summary()
+                    heartdisease,lungdisease) %>% tbl_summary(
+                            statistic = list(
+                                    all_continuous() ~ "{mean} ({sd})",
+                                    all_categorical() ~ "{n} ({p}%)")
+                    ) %>%
+                modify_header(label = "**Variable**") %>%
+                modify_caption("Subjects baseline characteristics") %>%
+                bold_labels()
 ```
 At this point we have coded all the variables correctly, so we can proceed with the analysis.
 
@@ -216,7 +226,7 @@ model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
 ## reestablishing the variable as ordinal
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
 ```
-This analysis allows us to determine that, when using a reference level of *sleepquality* that is **very bad**, the odds of experiencing *pain* when *sleepquality* increases are significantly lower (the odds ratio of the comparison of each level with very bad sleep quality can be seen in the table above).
+This analysis allows us to determine that, when using a reference level of *sleepquality* that is **very bad**, the odds of experiencing *pain* when *sleepquality* increases are significantly lower (the odds ratio of the comparison of each other level with the very bad level of sleep quality can be seen in the table and plot above).
 
 ---
 
@@ -227,8 +237,6 @@ In this next model, we're going to consider sleepquality as a continuous variabl
 ## categorical information (names for each level)
 PPCRdata %>% mutate(sleepquality = as.numeric(sleepquality)) -> dataNumeric
 
-## checking to see if it worked properly
-head(dataNumeric$sleepquality)
 ```
 Now that the variable is transformed to numeric, let's run the model again.
 
@@ -242,16 +250,12 @@ summary(model2)
 model2Tidy
 
 ```
-In order to determine which model is best, we're going to be conducting two tests: the Likelihood Ratio Chi-Square Test and the BIC test (as was recommended [here](https://www3.nd.edu/~rwilliam/stats3/OrdinalIndependent.pdf) by Richard Williams of the University of Notre Dame).
+In order to determine which model is best, we're going to look at the AIC values. It looks like changing the variable to continues increases the AIC, which tells us that the model is behaving worse than the categorical. Let's keep it categorical, then.
 
-```{r}
-lrtest(model1,model2)
-```
-
-The alternative hypothesis for this test 
+---
 
 #### Adjusted Analysis
-This analysis checks for the association between the *pain* variable and the *sleepquality* variable, adjusting the model for age, bmi, comorbidities and depression, as was done in the original article. As *pain* is a binary variable, we're going to run a logistic regression.
+This analysis checks for the association between the *pain* variable and the *sleepquality* variable, adjusting the model for bmi, comorbidities and depression, as was done in the original article. As *pain* is a binary variable, we're going to run a logistic regression.
 
 ```{r}
 model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + bmi + depression + 
@@ -277,6 +281,33 @@ summary(model4)
 ## reestablishing the variable as ordinal
 PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
 ```
+
+We can present these results in a better fashion.
+
+```{r}
+
+## Let's proceed with the same code we used for the  
+## unadjusted analysis, only changing the model used
+
+model4Tidy <- tidy(model4, conf.int = TRUE, exponentiate = TRUE)
+model4Tidy %>% rename(Odds.Ratio = estimate) -> model4Tidy
+model4Tidy
+
+```
+
+These are the odds ratios of *pain* being present when we compare the different levels of the *sleepquality* variable to its baseline: very bad. We can also see the same measurements calculated for all the covariates.
+
+Let's look at a plot:
+
+```{r}
+model4Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                geom_point() +
+                geom_vline(xintercept = 1, lty = 4) +
+                geom_errorbarh()
+```
+
+Here we can see all of the associations with the *pain* variable in our model.
 
 According to the [UCLA Office of Advanced Research Computing (OARC)](https://stats.oarc.ucla.edu/r/dae/logit-regression/), in order to test for an overall effect of the *sleepquality* variable, we can employ the wald.test function from the aod library.
 
