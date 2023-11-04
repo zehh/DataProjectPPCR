@@ -3,7 +3,10 @@ title: "Association between sleep quality and pain in older adults"
 author: "Pedro Henrique Brant"
 date: "`r Sys.Date()`"
 output:
-  html_document: default
+  html_document: 
+        toc: true
+        toc_depth: 4
+        theme: united
   pdf_document: default
 ---
 
@@ -238,6 +241,7 @@ In this next model, we're going to consider sleepquality as a continuous variabl
 PPCRdata %>% mutate(sleepquality = as.numeric(sleepquality)) -> dataNumeric
 
 ```
+
 Now that the variable is transformed to numeric, let's run the model again.
 
 ```{r}
@@ -250,6 +254,7 @@ summary(model2)
 model2Tidy
 
 ```
+
 In order to determine which model is best, we're going to look at the AIC values. It looks like changing the variable to continues increases the AIC, which tells us that the model is behaving worse than the categorical. Let's keep it categorical, then.
 
 ---
