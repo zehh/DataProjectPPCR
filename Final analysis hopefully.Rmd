@@ -269,6 +269,27 @@ model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + age + bmi +
                 family = "binomial")
 summary(model3)
 ```
+Let's adjust the results and plot the odds ratios.
+
+```{r}
+
+model3Tidy <- tidy(model3, conf.int = TRUE, exponentiate = TRUE)
+model3Tidy %>% rename(Odds.Ratio = estimate) -> model3Tidy
+model3Tidy
+
+model3Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
+                geom_point() +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh()
+
+```
+
+If we refer to the analysis of the unadjusted model, the results are the same for the *sleepquality* variable. In summary, there is a statistically significant **linear** association between <u>increasing</u> *sleepquality* values and <u>decreasing</u> the probability of *pain* being present (due to the less than 1 Odds Ratio). There is also positive [jerk](https://en.wikipedia.org/wiki/Jerk_(physics)) in the association between these two variables due to *sleepquality.C* being statistically significant and positive.
 
 The interpretation of this model regarding our main independent variable, *sleepquality*, is hard to do, as the model is considering it as ordinal. Let's run it again with the model considering it as categorical.
 
