@@ -30,7 +30,7 @@ library(gtsummary)
 ```{r}
 
 ## Url provided by PPCR staff
-url <- 'https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/T9gKrWnaRr5K0yT/FINAL%20-%20ELSI_students.dta'
+url <- 'https://ryver-prd-files.s3.us-west-2.amazonaws.com/tnt45405/T9gKrWnaRr5K0yT/FINAL%20-%20ELSI_students.dta'
 
 ## Using the read_dta function from haven to read the .dta file created in STATA
 PPCRdata <- read_dta(url)
@@ -45,7 +45,7 @@ PPCRdata
 ```
 
 PPCR Staff has described the variables included in this dataset with the following:
-![Variables in modified dataset](https://contattafiles.s3.us-west-1.amazonaws.com/tnt45405/3Rq88vSRw93ITf6/Screen%20Shot%202023-10-04%20at%201.03.35%20PM.png)
+![Variables in modified dataset](https://ryver-prd-files.s3.us-west-2.amazonaws.com/tnt45405/3Rq88vSRw93ITf6/Screen%20Shot%202023-10-04%20at%201.03.35%20PM.png)
 
 ### Adjusting Variables for the Analysis
 
