@@ -59,13 +59,13 @@ unique(PPCRdata$sleepproblems)
 
 We can then see that *pain* and *sleepproblems* are binary variables, while *p_intensity* and *sleepquality* are ordinal variables, although they aren't coded in this manner yet.
 
-Now let's transform *p_intensity* and *sleepquality* into ordinal variables and *pain* and *sleepproblems* into binary variables, as they were read as numerical variables with labels.
+Now let's transform *p_intensity* and *sleepquality* into categorical variables and *pain* and *sleepproblems* into dichotomous variables, as they were read as numerical variables with labels.
 
 ```{r}
 ## Using the as_factor function from haven to transform the variables 
 ## with the labels as names for the levels in the factors
-PPCRdata$sleepquality <- as_factor(PPCRdata$sleepquality, ordered = TRUE)
-PPCRdata$p_intensity <- as_factor(PPCRdata$p_intensity, ordered = TRUE)
+PPCRdata$sleepquality <- as_factor(PPCRdata$sleepquality)
+PPCRdata$p_intensity <- as_factor(PPCRdata$p_intensity)
 PPCRdata$pain <- as_factor(PPCRdata$pain)
 PPCRdata$sleepproblems <- as_factor(PPCRdata$sleepproblems)
 
@@ -79,6 +79,7 @@ levels(PPCRdata$sleepquality)
 ```
 
 Other variables that we're going to use in our model that haven't been coded properly as well include: *depression*, *alcohol*, *fracture*, *cancer*, *diabetes*, *dementia*, *arthritis*, *heartdisease* and *lungdisease*.
+
 ```{r}
 ## Showing that the variables are coded as numerical variables
 unique(PPCRdata$depression)
@@ -111,15 +112,15 @@ PPCRdata$lungdisease <- as_factor(PPCRdata$lungdisease)
 
 PPCRdata$age <- as.numeric(PPCRdata$age)
 ```
-For completeness, let's check all of the variables we're going to use together in a summary
+Let's now create a table summarizing all the information we have collected.
+
 ```{r}
-PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,sleepproblems,depression,
-                    alcohol,fracture,cancer,diabetes,dementia,arthritis,
-                    heartdisease,lungdisease) %>% tbl_summary(
-                            statistic = list(
-                                    all_continuous() ~ "{mean} ({sd})",
-                                    all_categorical() ~ "{n} ({p}%)")
-                    ) %>%
+PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
+                           sleepproblems,depression,alcohol,fracture,cancer,
+                           diabetes,dementia,arthritis,heartdisease,
+                           lungdisease) %>% 
+        tbl_summary( tatistic = list(all_continuous() ~ "{mean} ({sd})",
+                                    all_categorical() ~ "{n} ({p}%)")) %>%
                 modify_header(label = "**Variable**") %>%
                 modify_caption("Subjects baseline characteristics") %>%
                 bold_labels()
@@ -131,83 +132,32 @@ At this point we have coded all the variables correctly, so we can proceed with 
 #### Unadjusted Analysis
 This analysis checks for the association between the *pain* variable and the *sleepquality* variable, without adjustments. As *pain* is a binary variable, we're going to run a logistic regression.
 
-```{r}
+```{r warning=FALSE}
 ## using the generalized linear model function 
 ## with the family = "binomial" to create a logistical
 ## regression
-model0 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
-               family = "binomial")
-summary(model0)
-```
 
-As the independent variable is coded as ordinal, the interpretation isn't completely straightforward. To make it simpler, let's start by calculating confidence intervals (CI) and then exponentiating them together with the coefficients to obtain the odds ratios and their respective CI's.
-
-```{r message=FALSE, warning=FALSE}
-
-## coef(model0) extracts the coefficients from the model
-## confint(model0) calculates confidence intervals (95%)
-## cbind then creates a table by joining the two by column
-## finally, we exponentiate all the results using the base e
-## in order to transform logit units into regular units
-
-exp(cbind(OR = coef(model0),confint(model0)))
-
-## another way, which is simpler and does the same, is to use
-## the broom::tidy function
-
-model0Tidy <- tidy(model0, conf.int = TRUE, exponentiate = TRUE)
-model0Tidy %>% rename(Odds.Ratio = estimate) -> model0Tidy
-model0Tidy
-
-## let's plot these coefficients and their CI's to increase
-## readability
-
-model0Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
-                           xmax = conf.high, height = 0)) +
-                ## inserting a point for the odds ratio
-                geom_point() +
-                ## drawing a line at the 1 to improve readability
-                geom_vline(xintercept = 1, lty = 4) +
-                ## drawing an horizontal line to represent the 
-                ## confidence interval
-                geom_errorbarh() +
-                ## reordering the categorical variables in the
-                ## y-axis to improve readability
-                ## also removing the intercept, as it's not 
-                ## relevant for interpretation
-                scale_y_discrete(limits = c('sleepquality.L',
-                                            'sleepquality.Q',
-                                            'sleepquality.C',
-                                            'sleepquality^4'))
-
-```
-
-The p-value of the term *sleepquality.L* being significant means that there is a statistically significant **linear** association between <u>increasing</u> *sleepquality* values and <u>decreasing</u> the probability of *pain* being present (due to the less than 1 Odds Ratio).
-
-We can also see that our model finds a significant relationship between *sleepquality.C* and *pain*. This finding is a little bit harder to interpret, but according to [this stack overflow post](https://stackoverflow.com/questions/57297771/interpretation-of-l-q-c-4-for-logistic-regression), we can interpret the third order polynomial as [jerk](https://en.wikipedia.org/wiki/Jerk_(physics)).
-
----
-
-A different approach would be to either consider the variable as continuous or categorical. As we don't have to test for any assumptions in order to consider it categorical, let's proceed with that first.
-
-```{r warning=FALSE}
-## changing the variable to categorical
-PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
-
-## running the model
 model1 <- glm (data = PPCRdata, formula = pain ~ sleepquality,
                family = "binomial")
 summary(model1)
 
-## Let's proceed with the same transformations we did 
-## when we built the model with the variable considered
-## as ordinal, in order to improve readability
+## coef(model1) extracts the coefficients from the model
+## confint(model1) calculates confidence intervals (95%)
+## cbind then creates a table by joining the two by column
+## finally, we exponentiate all the results using the base e
+## in order to transform logit units into regular units
+
+exp(cbind(OR = coef(model1),confint(model1)))
+
+## another way, which is simpler and does the same, is to use
+## the broom::tidy function
 
 model1Tidy <- tidy(model1, conf.int = TRUE, exponentiate = TRUE)
 model1Tidy %>% rename(Odds.Ratio = estimate) -> model1Tidy
 model1Tidy
 
-## Let's also plot this one for increased readability
+## let's plot these coefficients and their CI's to increase
+## readability
 
 model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                            xmax = conf.high, height = 0)) +
@@ -218,20 +168,15 @@ model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                 ## drawing an horizontal line to represent the 
                 ## confidence interval
                 geom_errorbarh() +
-                ## changing the order to increase readability
-                ## and removing the intercept again
-                scale_y_discrete(limits = c('sleepqualityBad',
-                                            'sleepqualityFair',
-                                            'sleepqualityGood',
-                                            'sleepqualityVery good'))
-                
-
-## reestablishing the variable as ordinal
-PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
+                ## removing the intercept again
+                scale_y_discrete(
+                        limits = setdiff(model1Tidy$term, "(Intercept)"))
 ```
 This analysis allows us to determine that, when using a reference level of *sleepquality* that is **very bad**, the odds of experiencing *pain* when *sleepquality* increases are significantly lower (the odds ratio of the comparison of each other level with the very bad level of sleep quality can be seen in the table and plot above).
 
 ---
+
+##### Sensitivity Analysis
 
 In this next model, we're going to consider sleepquality as a continuous variable.
 
@@ -250,8 +195,19 @@ glm (data = dataNumeric, formula = pain ~ sleepquality,
      family = "binomial") -> model2
 model2 %>% tidy(confint = TRUE, exponentiate = TRUE) %>% 
         rename(Odds.Ratio = estimate) -> model2Tidy
-summary(model2)
 model2Tidy
+
+model2Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
+                geom_point() +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                scale_y_discrete(
+                        limits = setdiff(model2Tidy$term, "(Intercept)"))
 
 ```
 
