@@ -119,7 +119,7 @@ PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
                            sleepproblems,depression,alcohol,fracture,cancer,
                            diabetes,dementia,arthritis,heartdisease,
                            lungdisease) %>% 
-        tbl_summary( tatistic = list(all_continuous() ~ "{mean} ({sd})",
+        tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})",
                                     all_categorical() ~ "{n} ({p}%)")) %>%
                 modify_header(label = "**Variable**") %>%
                 modify_caption("Subjects baseline characteristics") %>%
@@ -183,17 +183,21 @@ In this next model, we're going to consider sleepquality as a continuous variabl
 ```{r}
 ## doing the transformation and saving on another variable to not lose the
 ## categorical information (names for each level)
-PPCRdata %>% mutate(sleepquality = as.numeric(sleepquality)) -> dataNumeric
-
+PPCRdata %>% mutate(sleepqualitynum = 
+        case_when(PPCRdata$sleepquality == 'Very bad' ~ 1,
+                  PPCRdata$sleepquality == 'Bad' ~ 2,
+                  PPCRdata$sleepquality == 'Fair' ~ 3,
+                  PPCRdata$sleepquality == 'Good' ~ 4,
+                  PPCRdata$sleepquality == 'Very good' ~ 5)) -> PPCRdata
 ```
 
 Now that the variable is transformed to numeric, let's run the model again.
 
-```{r}
+```{r, warning = FALSE}
 
-glm (data = dataNumeric, formula = pain ~ sleepquality, 
+glm (data = PPCRdata, formula = pain ~ sleepqualitynum, 
      family = "binomial") -> model2
-model2 %>% tidy(confint = TRUE, exponentiate = TRUE) %>% 
+model2 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
         rename(Odds.Ratio = estimate) -> model2Tidy
 model2Tidy
 
@@ -227,7 +231,7 @@ summary(model3)
 ```
 Let's adjust the results and plot the odds ratios.
 
-```{r}
+```{r, warning = FALSE}
 
 model3Tidy <- tidy(model3, conf.int = TRUE, exponentiate = TRUE)
 model3Tidy %>% rename(Odds.Ratio = estimate) -> model3Tidy
@@ -241,55 +245,45 @@ model3Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                 geom_vline(xintercept = 1, lty = 4) +
                 ## drawing an horizontal line to represent the 
                 ## confidence interval
-                geom_errorbarh()
+                geom_errorbarh() +
+                scale_y_discrete(
+                        limits = setdiff(model3Tidy$term, "(Intercept)"))
 
 ```
 
-If we refer to the analysis of the unadjusted model, the results are the same for the *sleepquality* variable. In summary, there is a statistically significant **linear** association between <u>increasing</u> *sleepquality* values and <u>decreasing</u> the probability of *pain* being present (due to the less than 1 Odds Ratio). There is also positive [jerk](https://en.wikipedia.org/wiki/Jerk_(physics)) in the association between these two variables due to *sleepquality.C* being statistically significant and positive.
+If we refer to the analysis of the unadjusted model, the results are the same for the *sleepquality* variable. In summary, increasing levels of sleep quality are decrease the odds of pain being present.
 
-The interpretation of this model regarding our main independent variable, *sleepquality*, is hard to do, as the model is considering it as ordinal. Let's run it again with the model considering it as categorical.
+##### Sensitivity Analysis
 
-```{r}
-## changing the variable to categorical
-PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = FALSE)
+We can also test how the adjusted model behaves with sleep quality as a continuous variable.
 
-## running the model
-model4 <- glm (data = PPCRdata, formula = pain ~ sleepquality + age + 
-                       depression + alcohol + fracture + cancer + 
-                       diabetes + dementia + arthritis + heartdisease +
-                       lungdisease, family = "binomial")
+```{r, warning = FALSE}
+
+model4 <- glm(data = PPCRdata, formula = pain ~ sleepqualitynum + age + bmi + 
+                      depression + alcohol + fracture + cancer + diabetes + 
+                      dementia + arthritis + heartdisease + lungdisease,
+                family = "binomial")
 summary(model4)
-
-## reestablishing the variable as ordinal
-PPCRdata$sleepquality <- factor(PPCRdata$sleepquality, ordered = TRUE)
-```
-
-We can present these results in a better fashion.
-
-```{r}
-
-## Let's proceed with the same code we used for the  
-## unadjusted analysis, only changing the model used
 
 model4Tidy <- tidy(model4, conf.int = TRUE, exponentiate = TRUE)
 model4Tidy %>% rename(Odds.Ratio = estimate) -> model4Tidy
 model4Tidy
 
-```
-
-These are the odds ratios of *pain* being present when we compare the different levels of the *sleepquality* variable to its baseline: very bad. We can also see the same measurements calculated for all the covariates.
-
-Let's look at a plot:
-
-```{r}
 model4Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                            xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
                 geom_point() +
+                ## drawing a line at the 1 to improve readability
                 geom_vline(xintercept = 1, lty = 4) +
-                geom_errorbarh()
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                scale_y_discrete(
+                        limits = setdiff(model4Tidy$term, "(Intercept)"))
+
 ```
 
-Here we can see all of the associations with the *pain* variable in our model.
+The results point towards increases in the continuous variable also being significantly associated with a decrease in the odds of pain being present. Looking at the AIC, it still seems as if the model with sleepquality coded as categorical behaves better.
 
 #### Testing the assumptions of the model
 
@@ -297,24 +291,30 @@ At this point, I haven't yet learned how to properly test for the assumptions of
 
 ```{r warning= FALSE}
 library(blorr)
-blr_model_fit_stats(model4)
-blr_test_hosmer_lemeshow(model4)
-blr_roc_curve(blr_gains_table(model4))
-car::vif(model4)
+blr_model_fit_stats(model3)
+blr_test_hosmer_lemeshow(model3)
+blr_roc_curve(blr_gains_table(model3))
+car::vif(model3)
 ```
 
 ### Association between *sleepquality* and *pain*
-#### Adjusted Analysis
+#### Ordinal Regression
+##### Adjusted Analysis
 In order to do this analysis I'll try to follow the instructions from the [UCLA OARC - Ordinal Logistic Regression | R Data Analysis Example](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/).
 
 As the original article by [Montelhão et al](https://pubmed.ncbi.nlm.nih.gov/34968438/) tested for bidirectional associations, let's try to replicate that as well. In this case, the dependent variable is ordinal, therefore we will run an ordinal logistical regression.
 
 ```{r warning = FALSE, message = FALSE}
+## creating an ordinal version of sleepquality
+
+PPCRdata %>% mutate (sleepqualityord = factor(PPCRdata$sleepquality,
+                                              ordered = TRUE)) -> PPCRdata
+
 ## loading the library required to run the model
 library(MASS)
 
 ## running the model
-model5 <- polr (data = PPCRdata, formula = sleepquality ~ pain + depression + 
+model5 <- polr (data = PPCRdata, formula = sleepqualityord ~ pain + depression + 
                        alcohol + fracture + cancer + diabetes + dementia +
                        arthritis + heartdisease + lungdisease, Hess = TRUE)
 summary(model5)
@@ -362,14 +362,14 @@ model5OddsRatio %>% ggplot (aes(OR, term, xmin = conf.low,
 
 The plot allows us to visually determine that the presence of *pain* decreases the odds of *sleepquality* being higher. Unfortunately, the model has a high AIC.
 
-#### Unadjusted Analysis
+##### Unadjusted Analysis
 
 In order to be able to compare the adjusted analysis, let's proceed with one that is unadjusted as well.
 
 ```{r}
 ## this code is equivalent to the one used for the adjusted analysis, just 
 ## with no covariates added to the model
-model6 <- polr (data = PPCRdata, formula = sleepquality ~ pain, Hess = TRUE)
+model6 <- polr (data = PPCRdata, formula = sleepqualityord ~ pain, Hess = TRUE)
 summary(model6)
 
 ## getting the coefficients
@@ -401,9 +401,49 @@ model6OddsRatio %>% ggplot (aes(OR, term, xmin = conf.low,
                 geom_errorbarh()
 ```
 
-We need to check what the warning means, but the presence of pain reduces the odds of increased sleep quality in this model. THe AIC is huge, as should be expected of a model that only has one predictor and that predictor is a dichotomous variable.
+We need to check what the warning means, but the presence of pain reduces the odds of increased sleep quality in this model. The AIC is huge, as should be expected of a model that only has one predictor and that predictor is a dichotomous variable.
 
-#### Testing for the Proportional Odds Assumption
+##### Testing for the Proportional Odds Assumption
 
 This is something to consider further on. At this point, I haven't yet figured out exactly how to do it, but I'll try to follow the instructions from the [Office of Advanced Research Computing](https://stats.oarc.ucla.edu/r/dae/ordinal-logistic-regression/) on another day.
 
+```{r, messages = FALSE, warning = FALSE}
+## Loading the library that is needed to conduct the visual analysis of the
+## proportional odds assumption
+
+library (Hmisc)
+
+sf <- function(y) {
+  c('Y>=1' = qlogis(mean(y >= 1)),
+    'Y>=2' = qlogis(mean(y >= 2)),
+    'Y>=3' = qlogis(mean(y >= 3)),
+    'Y>=4' = qlogis(mean(y >= 4)),
+    'Y>=5' = qlogis(mean(y >= 5)),
+    'Y>=6' = qlogis(mean(y >= 6)))
+}
+
+(s <- with(PPCRdata, summary(as.numeric(sleepqualityord) ~ pain + depression + 
+                       alcohol + fracture + cancer + diabetes + dementia +
+                       arthritis + heartdisease + lungdisease, fun=sf)))
+
+s[, 6] <- s[, 6] - s[, 5]
+s[, 5] <- s[, 5] - s[, 4]
+s[, 4] <- s[, 4] - s[, 3]
+s[, 3] <- s[, 3] - s[, 3]
+
+s
+
+plot(s, which=1:6, xlab='logit', main=' ', xlim=c(-2.8,0))
+
+```
+
+It doesn't look like the proportional odds assumption holds.
+
+#### Logistic Regression
+In order to conduct a logistic regression using sleep quality as a dependent variable, we need to first convert it to a dichotomous variable.
+
+```{r}
+
+
+
+```
