@@ -440,10 +440,75 @@ plot(s, which=1:6, xlab='logit', main=' ', xlim=c(-2.8,0))
 It doesn't look like the proportional odds assumption holds.
 
 #### Logistic Regression
-In order to conduct a logistic regression using sleep quality as a dependent variable, we need to first convert it to a dichotomous variable.
+In order to conduct a logistic regression using sleep quality as a dependent variable, we need to first convert it to a dichotomous variable. Let's consider that "Very Bad" and "Bad" are failures and "Fair", "Good" and "Very Good" are successes.
 
 ```{r}
 
+PPCRdata %>% mutate (sleepqualitydich = case_when(
+                        sleepquality %in% c("Very bad", "Bad") ~ 0,
+                        sleepquality %in% c("Fair", "Good", "Very good") ~ 1
+                                                )
+                     ) -> PPCRdata
 
+head(PPCRdata$sleepqualitydich)
+summary(PPCRdata$sleepqualitydich)
 
 ```
+
+##### Unadjusted Analysis
+Let's proceed with the unadjusted analysis with sleepquality as a dichotomous variable.
+
+```{r, warning = FALSE}
+
+model7 <- glm(sleepqualitydich ~ pain, "binomial", data = PPCRdata)
+summary(model7)
+
+model7Tidy <- tidy(model7, conf.int = TRUE, exponentiate = TRUE)
+model7Tidy %>% rename(Odds.Ratio = estimate) -> model7Tidy
+model7Tidy
+
+model7Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
+                geom_point() +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                scale_y_discrete(
+                        limits = setdiff(model7Tidy$term, "(Intercept)"))
+
+```
+
+The presence of pain decreases the odds of a success in sleepqualitydich.
+
+##### Adjusted Analysis
+
+```{r, warning = FALSE}
+
+model8 <- glm(sleepqualitydich ~ pain + depression + alcohol + fracture + 
+                      cancer + diabetes + dementia + arthritis + heartdisease +
+                      lungdisease, "binomial", data = PPCRdata)
+summary(model8)
+
+model8Tidy <- tidy(model8, conf.int = TRUE, exponentiate = TRUE)
+model8Tidy %>% rename(Odds.Ratio = estimate) -> model8Tidy
+model8Tidy
+
+model8Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
+                           xmax = conf.high, height = 0)) +
+                ## inserting a point for the odds ratio
+                geom_point() +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                scale_y_discrete(
+                        limits = setdiff(model8Tidy$term, "(Intercept)")) +
+                xlim(0,2)
+
+```
+
+#####Testing the assumptions
