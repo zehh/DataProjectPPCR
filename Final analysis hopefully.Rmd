@@ -171,12 +171,13 @@ PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
                 add_n() %>% 
                 ## adding a column for overall observations, not divided by pain
                 add_overall(last = TRUE) -> table1
-
-## saving the table for publication
-table1 %>% 
-        as_gt() %>% 
-        gt::gtsave(filename = "table1.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
-
+## checking if table has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")){
+        ## if it hasn't, saving the table for publication
+        table1 %>% 
+                as_gt() %>% 
+                gt::gtsave(filename = "table1.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+}
 ## printing the table
 table1
 ```
