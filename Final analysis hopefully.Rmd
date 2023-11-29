@@ -114,16 +114,118 @@ PPCRdata$age <- as.numeric(PPCRdata$age)
 ```
 Let's now create a table summarizing all the information we have collected.
 
-```{r}
+```{r, fig.width = 10}
+## Table 1
 PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
                            sleepproblems,depression,alcohol,fracture,cancer,
                            diabetes,dementia,arthritis,heartdisease,
                            lungdisease) %>% 
+        mutate(pain = droplevels(pain),
+               p_intensity = droplevels(p_intensity),
+               sleepquality = droplevels(sleepquality),
+               depression = droplevels(depression),
+               alcohol = droplevels(alcohol),
+               diabetes = droplevels(diabetes),
+               dementia = droplevels(dementia),
+               arthritis = droplevels(arthritis),
+               cancer = droplevels(cancer),
+               sleepproblems = droplevels(sleepproblems)) %>%
         tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})",
-                                    all_categorical() ~ "{n} ({p}%)")) %>%
+                                    all_categorical() ~ "{n} ({p}%)"),
+                    missing = "no",
+                    label = list(pain ~ "Pain",
+                                 p_intensity ~ "Pain Intensity",
+                                 sleepquality ~ "Sleep Quality",
+                                 depression ~ "Depression",
+                                 alcohol ~ "Alcohol Consumption",
+                                 diabetes ~ "Diabetes Mellitus",
+                                 dementia ~ "Dementia",
+                                 arthritis ~ "Arthritis",
+                                 cancer ~ "Cancer",
+                                 sleepproblems ~ "Sleep Problems",
+                                 age ~ "Age",
+                                 bmi ~ "Body Mass Index",
+                                 fracture ~ "Fracture of Hip or Wrist",
+                                 heartdisease ~ "Heart Disease",
+                                 lungdisease ~ "Lung Disease")) %>%
                 modify_header(label = "**Variable**") %>%
                 modify_caption("Subjects baseline characteristics") %>%
-                bold_labels()
+                bold_labels() %>%
+                add_n()
+
+## Another options is to have it divided by pain
+PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
+                           sleepproblems,depression,alcohol,fracture,cancer,
+                           diabetes,dementia,arthritis,heartdisease,
+                           lungdisease) %>% 
+        mutate(pain = recode(droplevels(pain), No = "No Pain", Yes = "Pain"),
+               p_intensity = droplevels(p_intensity),
+               sleepquality = droplevels(sleepquality),
+               depression = droplevels(depression),
+               alcohol = droplevels(alcohol),
+               diabetes = droplevels(diabetes),
+               dementia = droplevels(dementia),
+               arthritis = droplevels(arthritis),
+               cancer = droplevels(cancer),
+               sleepproblems = droplevels(sleepproblems)) %>%
+        tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                    all_categorical() ~ "{n} ({p}%)"),
+                    missing = "no",
+                    by = pain,
+                    label = list(pain ~ "Pain",
+                                 p_intensity ~ "Pain Intensity",
+                                 sleepquality ~ "Sleep Quality",
+                                 depression ~ "Depression",
+                                 alcohol ~ "Alcohol Consumption",
+                                 diabetes ~ "Diabetes Mellitus",
+                                 dementia ~ "Dementia",
+                                 arthritis ~ "Arthritis",
+                                 cancer ~ "Cancer",
+                                 sleepproblems ~ "Sleep Problems",
+                                 age ~ "Age",
+                                 bmi ~ "Body Mass Index",
+                                 fracture ~ "Fracture of Hip or Wrist",
+                                 heartdisease ~ "Heart Disease",
+                                 lungdisease ~ "Lung Disease")) %>%
+                modify_header(label = "**Variable**") %>%
+                modify_caption("Subjects baseline characteristics") %>%
+                bold_labels() %>%
+                add_n()
+
+## Another way is to further stratify by sleep quality, but in order to do this
+## we need to drop the observations that are NA for sleep quality
+PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
+                           sleepproblems,depression,alcohol,fracture,cancer,
+                           diabetes,dementia,arthritis,heartdisease,
+                           lungdisease) %>% 
+        mutate(pain = recode(droplevels(pain), No = "No Pain", Yes = "Pain"),
+               p_intensity = droplevels(p_intensity),
+               sleepquality = droplevels(sleepquality),
+               depression = droplevels(depression),
+               alcohol = droplevels(alcohol),
+               diabetes = droplevels(diabetes),
+               dementia = droplevels(dementia),
+               arthritis = droplevels(arthritis),
+               cancer = droplevels(cancer),
+               sleepproblems = droplevels(sleepproblems)) %>%
+        drop_na(sleepquality) %>%
+        tbl_strata(
+                .header = "**{strata}**, N = {n}",
+                strata = sleepquality,
+                ~.x %>% 
+                 tbl_summary(
+                         statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                    all_categorical() ~ "{n} ({p}%)"),
+                    missing = "no",
+                    by = pain
+                    ) %>%
+                modify_header(label = "**Variable**") %>%
+                modify_caption("Subjects baseline characteristics by Sleep Quality") %>%
+                bold_labels() %>%
+                add_n()
+        )
+        
+
 ```
 At this point we have coded all the variables correctly, so we can proceed with the analysis.
 
@@ -511,4 +613,4 @@ model8Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
 
 ```
 
-#####Testing the assumptions
+##### Testing the assumptions
