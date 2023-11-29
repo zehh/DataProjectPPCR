@@ -217,7 +217,20 @@ PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
                          statistic = list(all_continuous() ~ "{mean} ({sd})",
                                     all_categorical() ~ "{n} ({p}%)"),
                     missing = "no",
-                    by = pain
+                    by = pain,
+                    label = list(p_intensity ~ "Pain Intensity",
+                                 depression ~ "Depression",
+                                 alcohol ~ "Alcohol Consumption",
+                                 diabetes ~ "Diabetes Mellitus",
+                                 dementia ~ "Dementia",
+                                 arthritis ~ "Arthritis",
+                                 cancer ~ "Cancer",
+                                 sleepproblems ~ "Sleep Problems",
+                                 age ~ "Age",
+                                 bmi ~ "Body Mass Index",
+                                 fracture ~ "Fracture of Hip or Wrist",
+                                 heartdisease ~ "Heart Disease",
+                                 lungdisease ~ "Lung Disease")
                     ) %>%
                 modify_header(label = "**Variable**") %>%
                 modify_caption("Subjects baseline characteristics by Sleep Quality") %>%
