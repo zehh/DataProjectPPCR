@@ -76,6 +76,9 @@ levels(PPCRdata$sleepquality)
 PPCRdata$sleepquality <- fct_rev(PPCRdata$sleepquality)
 levels(PPCRdata$sleepquality)
 
+## doing the same with genhealth as it will be used for a sensitivity analysis
+# adjusting the genhealth variable
+PPCRdata %>% mutate(genhealth = fct_rev(as_factor(genhealth))) -> PPCRdata
 ```
 
 Other variables that we're going to use in our model that haven't been coded properly as well include: *depression*, *alcohol*, *fracture*, *cancer*, *diabetes*, *dementia*, *arthritis*, *heartdisease* and *lungdisease*.
@@ -656,6 +659,20 @@ Let's proceed with the unadjusted analysis with sleepquality as a dichotomous va
 model7 <- glm(sleepqualitydich ~ pain, "binomial", data = PPCRdata)
 summary(model7)
 
+## checking if the model has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model7.docx")){
+        ## if it hasn't, saving the model for publication
+        model7 %>% 
+                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
+                               label = list(pain ~ "Pain")) %>% 
+                bold_p() %>%
+                bold_labels() %>%
+                italicize_levels() %>%
+                modify_header(label = "**Variable**") %>%
+                as_gt() %>% 
+                gt::gtsave(filename = "model7.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+}
+
 model7Tidy <- tidy(model7, conf.int = TRUE, exponentiate = TRUE)
 model7Tidy %>% rename(Odds.Ratio = estimate) -> model7Tidy
 model7Tidy
@@ -680,9 +697,9 @@ The presence of pain decreases the odds of a success in sleepqualitydich.
 
 ```{r, warning = FALSE}
 
-model8 <- glm(sleepqualitydich ~ pain + depression + alcohol + fracture + 
-                      cancer + diabetes + dementia + arthritis + heartdisease +
-                      lungdisease, "binomial", data = PPCRdata)
+model8 <- glm(sleepqualitydich ~ pain + age + bmi + depression + alcohol +
+                      fracture + cancer + diabetes + dementia + arthritis +
+                      heartdisease + lungdisease, "binomial", data = PPCRdata)
 summary(model8)
 
 model8Tidy <- tidy(model8, conf.int = TRUE, exponentiate = TRUE)
@@ -705,3 +722,64 @@ model8Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
 ```
 
 ##### Testing the assumptions
+
+
+##### Sensitivity Analysis
+
+The analysis done by Morelhão et al. didn't include sex as a covariate. We can analyze with it included to see its effect.
+
+```{r}
+
+model9 <- glm(sleepqualitydich ~ pain + age + bmi + depression + alcohol +
+         fracture + cancer + diabetes + dementia + arthritis +
+         heartdisease + lungdisease + sex, "binomial", data = PPCRdata)
+
+model9 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+        rename(Odds.Ratio = estimate) -> model9Tidy
+
+model9Tidy
+```
+
+The results show us that being male increases the odds of having fair or better sleep quality.
+
+We can also substitute the usage of variables to determine presence of comorbidities with a general health assessment by the patient himself, to see if it changes the analysis.
+
+```{r}
+# modeling
+model10 <- glm(sleepqualitydich ~ pain + genhealth + age + bmi + sex, "binomial", data = PPCRdata)
+
+model10 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+        rename(Odds.Ratio = estimate) -> model10Tidy
+
+model10 %>% tbl_regression(exponentiate = TRUE, conf.int = TRUE)
+```
+
+While the direction of the effect was the same, when considering the subjects perception of their own general health status instead of comorbidity level, the presence of pain has a lower effect size in decreasing the odds of having sleep quality that is fair or better.
+
+We can also take a look at the subset of patients that have pain to see if sleep quality is worse with increasing levels of pain
+
+```{r}
+## unadjusted
+model11 <- glm(sleepqualitydich ~ p_intensity,
+               data = filter(PPCRdata, pain == "Yes"), family = "binomial")
+
+model11 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+        rename(Odds.Ratio = estimate) -> model11Tidy
+
+model11 %>% tbl_regression(exponentiate = TRUE, conf.int = TRUE)
+
+## adjusted
+model12 <- glm(sleepqualitydich ~ p_intensity + age + bmi + depression + alcohol +
+         fracture + cancer + diabetes + dementia + arthritis +
+         heartdisease + lungdisease,
+    data = filter(PPCRdata, pain == "Yes"),
+    family = "binomial")
+
+model12 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+        rename(Odds.Ratio = estimate) -> model11Tidy
+
+model12 %>% tbl_regression(exponentiate = TRUE, conf.int = TRUE)
+
+```
+
+Increasing levels of pain intensity also decrease the odds of having fair or better sleep quality.
