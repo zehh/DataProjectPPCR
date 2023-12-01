@@ -258,7 +258,9 @@ labels2 <-c("sleepqualityVery good" = "Sleep Quality: Very Good",
             "bmi" = "Body Mass Index",
             "fractureYes" = "Fracture of Hip or Wrist",
             "heartdiseaseYes" = "Heart Disease",
-            "lungdiseaseYes" = "Lung Disease")
+            "lungdiseaseYes" = "Lung Disease",
+            "painYes" = "Pain",
+            "sexMale" = "Male")
 
 model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                            xmax = conf.high, height = 0)) +
@@ -702,22 +704,100 @@ model8 <- glm(sleepqualitydich ~ pain + age + bmi + depression + alcohol +
                       heartdisease + lungdisease, "binomial", data = PPCRdata)
 summary(model8)
 
+## checking if the model has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model8.docx")){
+        ## if it hasn't, saving the model for publication
+        model8 %>% 
+                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
+                               label = list(pain ~ "Pain",
+                                            age ~ "Age",
+                                            bmi ~ "Body Mass Index",
+                                            depression ~ "Depression",
+                                            alcohol ~ "Alcohol",
+                                            fracture ~ "Fracture",
+                                            cancer ~ "Cancer",
+                                            diabetes ~ "Diabetes",
+                                            dementia ~ "Dementia",
+                                            arthritis ~ "Arthritis",
+                                            heartdisease ~ "Heart Disease",
+                                            lungdisease ~ "Lung Disease")) %>% 
+                bold_p() %>%
+                bold_labels() %>%
+                italicize_levels() %>%
+                modify_header(label = "**Variable**") %>%
+                as_gt() %>% 
+                gt::gtsave(filename = "model8.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+}
+
 model8Tidy <- tidy(model8, conf.int = TRUE, exponentiate = TRUE)
 model8Tidy %>% rename(Odds.Ratio = estimate) -> model8Tidy
 model8Tidy
 
-model8Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
-                           xmax = conf.high, height = 0)) +
+## adding the reference terms to the data frame to allow for a better plot
+model8Tidy %>% 
+        add_row(term = "alcoholNever", Odds.Ratio = -99, std.error = 0, statistic = 0, p.value = 0, conf.low = 0, conf.high = 0, .before = 10) %>%
+        ## filtering the intercept
+        filter (term !="(Intercept)") %>%
+        ## saving the result so that we can refer to it in the next call
+        {. ->> model8Tidy}%>%
+        ## adding a variable to determine whether the observation
+        ## is a reference or not. Initially adding everything as FALSE
+        add_column(.after = "conf.high",
+                   reference = rep(FALSE, length.out = nrow(model8Tidy))) %>%
+        ## now the appropriate ones to TRUE
+        dplyr::mutate(reference = case_when
+               (term %in% c("Never") ~ TRUE,
+                                     TRUE ~ FALSE)) %>%
+        ## create a Variable column
+        dplyr::mutate(.after= "term",
+                      Variable = case_when(grepl("pain", term) ~ "Pain",
+                                           grepl("age", term) ~ "Age",
+                                           grepl("bmi", term) ~ "Body Mass Index",
+                                           grepl("depression",term) ~ "Depression",
+                                           grepl("alcohol",term) ~ "Alcohol",
+                                           grepl("fracture", term) ~ "Fracture",
+                                           grepl("cancer",term) ~ "Cancer",
+                                           grepl("diabetes",term) ~ "Diabetes",
+                                           grepl("dementia", term) ~ "Dementia",
+                                           grepl("arthritis",term) ~ "Arthritis",
+                                           grepl("heart",term) ~ "Heart Disease",
+                                           grepl("lung",term) ~ "Lung Disease")) %>%
+        ## transform the variables to factor
+        dplyr::mutate(Variable = as_factor(Variable)) %>%
+        dplyr::mutate(term = as_factor(term)) -> model8Tidy
+
+
+model8Tidy %>% ggplot (aes(x = Odds.Ratio, y = term, xmin = conf.low,
+                           xmax = conf.high, height = 0, alpha = !reference)) +
                 ## inserting a point for the odds ratio
-                geom_point() +
+                geom_point(aes(alpha = !reference)) +
                 ## drawing a line at the 1 to improve readability
                 geom_vline(xintercept = 1, lty = 4) +
                 ## drawing an horizontal line to represent the 
                 ## confidence interval
                 geom_errorbarh() +
-                scale_y_discrete(
-                        limits = setdiff(model8Tidy$term, "(Intercept)")) +
-                xlim(0,2)
+                scale_y_discrete(labels = labels2) +
+                labs(x = "Odds Ratio", y = "",
+                     title = "Sleep Quality being Fair or Better", 
+                subtitle = "Adjusted Odds Ratios") +
+                facet_grid(Variable ~ ., scales = "free_y", space = "free_y") +
+                scale_alpha_identity() +
+                # hide facet labels
+                theme(strip.background = element_blank(),
+                strip.text = element_blank()) +
+                # remove spacing between facets
+                theme(panel.spacing = unit(0, "pt")) +
+                scale_x_continuous(breaks = seq(0,1.8, by = 0.2),
+                                   limits = (c(0.3,1.53))) -> plot8
+
+## checking if plot has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots/plot8.png")){
+        ## if it hasn't, saving the plot for publication
+        ggsave("plot8.png", plot8, 
+               path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots") 
+}
+
+plot8
 
 ```
 
@@ -725,10 +805,10 @@ model8Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
 
 
 ##### Sensitivity Analysis
-
+###### Inclusion of Sex as a Covariate
 The analysis done by Morelhão et al. didn't include sex as a covariate. We can analyze with it included to see its effect.
 
-```{r}
+```{r, warning = FALSE}
 
 model9 <- glm(sleepqualitydich ~ pain + age + bmi + depression + alcohol +
          fracture + cancer + diabetes + dementia + arthritis +
@@ -738,11 +818,107 @@ model9 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>%
         rename(Odds.Ratio = estimate) -> model9Tidy
 
 model9Tidy
+
+## checking if the model has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model9.docx")){
+        ## if it hasn't, saving the model for publication
+        model9 %>% 
+                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
+                               label = list(pain ~ "Pain",
+                                            age ~ "Age",
+                                            bmi ~ "Body Mass Index",
+                                            depression ~ "Depression",
+                                            alcohol ~ "Alcohol",
+                                            fracture ~ "Fracture",
+                                            cancer ~ "Cancer",
+                                            diabetes ~ "Diabetes",
+                                            dementia ~ "Dementia",
+                                            arthritis ~ "Arthritis",
+                                            heartdisease ~ "Heart Disease",
+                                            lungdisease ~ "Lung Disease",
+                                            sex ~ "Sex")) %>% 
+                bold_p() %>%
+                bold_labels() %>%
+                italicize_levels() %>%
+                modify_header(label = "**Variable**") %>%
+                as_gt() %>% 
+                gt::gtsave(filename = "model9.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+}
+
+## adding the reference terms to the data frame to allow for a better plot
+model9Tidy %>% 
+        add_row(term = "alcoholNever", Odds.Ratio = 0, std.error = 0, statistic = 0, p.value = 0, conf.low = 0, conf.high = 0, .before = 10) %>%
+        ## filtering the intercept
+        filter (term !="(Intercept)") %>%
+        ## saving the result so that we can refer to it in the next call
+        {. ->> model9Tidy}%>%
+        ## adding a variable to determine whether the observation
+        ## is a reference or not. Initially adding everything as FALSE
+        add_column(.after = "conf.high",
+                   reference = rep(FALSE, length.out = nrow(model9Tidy))) %>%
+        ## now the appropriate ones to TRUE
+        dplyr::mutate(reference = case_when
+               (term %in% c("alcoholNever") ~ TRUE,
+                                     TRUE ~ FALSE)) %>%
+        ## create a Variable column
+        dplyr::mutate(.after= "term",
+                      Variable = case_when(grepl("pain", term) ~ "Pain",
+                                           grepl("age", term) ~ "Age",
+                                           grepl("bmi", term) ~ "Body Mass Index",
+                                           grepl("depression",term) ~ "Depression",
+                                           grepl("alcohol",term) ~ "Alcohol",
+                                           grepl("fracture", term) ~ "Fracture",
+                                           grepl("cancer",term) ~ "Cancer",
+                                           grepl("diabetes",term) ~ "Diabetes",
+                                           grepl("dementia", term) ~ "Dementia",
+                                           grepl("arthritis",term) ~ "Arthritis",
+                                           grepl("heart",term) ~ "Heart Disease",
+                                           grepl("lung",term) ~ "Lung Disease",
+                                           grepl("sex",term) ~ "Sex")) %>%
+        ## transform the variables to factor
+        dplyr::mutate(Variable = as_factor(Variable)) %>%
+        dplyr::mutate(term = as_factor(term)) -> model9Tidy
+
+model9Tidy %>% ggplot (aes(x = Odds.Ratio, y = term, xmin = conf.low,
+                           xmax = conf.high, height = 0, alpha = !reference)) +
+                ## inserting a point for the odds ratio
+                geom_point(aes(alpha = !reference)) +
+                ## drawing a line at the 1 to improve readability
+                geom_vline(xintercept = 1, lty = 4) +
+                ## drawing an horizontal line to represent the 
+                ## confidence interval
+                geom_errorbarh() +
+                scale_y_discrete(labels = labels2) +
+                labs(x = "Odds Ratio", y = "",
+                     title = "Sleep Quality being Fair or Better", 
+                subtitle = "Adjusted Odds Ratios") +
+                facet_grid(Variable ~ ., scales = "free_y", space = "free_y") +
+                scale_alpha_identity() +
+                # hide facet labels
+                theme(strip.background = element_blank(),
+                strip.text = element_blank()) +
+                # remove spacing between facets
+                theme(panel.spacing = unit(0, "pt")) +
+                scale_x_continuous(breaks = seq(0,1.8, by = 0.2),
+                                   limits = (c(0.3,1.67))) -> plot9
+
+## checking if plot has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots/plot9.png")){
+        ## if it hasn't, saving the plot for publication
+        ggsave("plot9.png", plot9, 
+               path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots") 
+}
+
+plot9
+
+
 ```
 
 The results show us that being male increases the odds of having fair or better sleep quality.
 
-We can also substitute the usage of variables to determine presence of comorbidities with a general health assessment by the patient himself, to see if it changes the analysis.
+###### Replacing Individual Comorbidities with a Self-Reported General Health Assessment
+
+We can also substitute the usage of variables to determine presence of comorbidities for a general health assessment reported by the patient himself, to see if it changes the analysis.
 
 ```{r}
 # modeling
