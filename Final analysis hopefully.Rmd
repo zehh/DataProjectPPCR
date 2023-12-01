@@ -171,8 +171,9 @@ PPCRdata %>% dplyr::select(age,bmi,sex,pain,p_intensity,sleepquality,
                 add_n() %>% 
                 ## adding a column for overall observations, not divided by pain
                 add_overall(last = TRUE) -> table1
+
 ## checking if table has been saved already
-if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")){
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/table1.docx")){
         ## if it hasn't, saving the table for publication
         table1 %>% 
                 as_gt() %>% 
@@ -214,8 +215,47 @@ model1Tidy <- tidy(model1, conf.int = TRUE, exponentiate = TRUE)
 model1Tidy %>% rename(Odds.Ratio = estimate) -> model1Tidy
 model1Tidy
 
+## checking if the model has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model1.docx")){
+        ## if it hasn't, saving the model for publication
+        model1 %>% 
+                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
+                               label = list(sleepquality ~ "Sleep Quality")) %>% 
+                bold_p() %>%
+                bold_labels() %>%
+                italicize_levels() %>%
+                modify_header(label = "**Variable**") %>%
+                as_gt() %>% 
+                gt::gtsave(filename = "model1.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+}
+
 ## let's plot these coefficients and their CI's to increase
 ## readability
+
+## setting up two label arrays for reuse later
+
+labels1 <- c("sleepqualityVery good" = "Very Good", "sleepqualityGood" = "Good",
+             "sleepqualityFair" = "Fair", "sleepqualityBad" = "Bad")
+
+labels2 <-c("sleepqualityVery good" = "Sleep Quality: Very Good",
+            "sleepqualityGood" = "Sleep Quality: Good",
+            "sleepqualityFair" = "Sleep Quality: Fair",
+            "sleepqualityBad" = "Sleep Quality: Bad",
+            "sleepqualityVery Bad" = "Reference - Sleep Quality: Very Bad",
+            "alcoholOnce a month or more" = "Alcohol Use: Once a month of more",
+            "alcoholLess than once a month" = "Alcohol Use: Less than once a month",
+            "alcoholNever" = "Reference - Alcohol Use: Never",
+            "depressionYes" = "Depression",
+            "alcoholYes" = "Alcohol Consumption",
+            "diabetesYes" = "Diabetes Mellitus",
+            "dementiaYes" = "Dementia",
+            "arthritisYes" = "Arthritis",
+            "cancerYes" = "Cancer",
+            "age" = "Age",
+            "bmi" = "Body Mass Index",
+            "fractureYes" = "Fracture of Hip or Wrist",
+            "heartdiseaseYes" = "Heart Disease",
+            "lungdiseaseYes" = "Lung Disease")
 
 model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                            xmax = conf.high, height = 0)) +
@@ -226,10 +266,26 @@ model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                 ## drawing an horizontal line to represent the 
                 ## confidence interval
                 geom_errorbarh() +
-                ## removing the intercept again
+                ## removing the intercept term and changing labels
                 scale_y_discrete(
-                        limits = setdiff(model1Tidy$term, "(Intercept)"))
+                        limits = setdiff(model1Tidy$term, "(Intercept)"),
+                        labels = labels1) +
+                labs(x = "Odds Ratio", y = "Sleep Quality",
+                     title = "Presence of Pain", 
+                subtitle = "Unadjusted odds ratio, in comparison to \"Very Bad\" Sleep Quality") +
+                ## adjusting the ticks on the x axis and its range
+                scale_x_continuous (breaks = seq(0,1.2,0.2),
+                                    limits = c(0,1.2)) -> plot1
+## checking if plot has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots/plot1.png")){
+        ## if it hasn't, saving the plot for publication
+        ggsave("plot1.png", plot1, 
+               path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots", height = 3) 
+}
+
+plot1
 ```
+
 This analysis allows us to determine that, when using a reference level of *sleepquality* that is **very bad**, the odds of experiencing *pain* when *sleepquality* increases are significantly lower (the odds ratio of the comparison of each other level with the very bad level of sleep quality can be seen in the table and plot above).
 
 ---
@@ -286,6 +342,31 @@ model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + age + bmi +
                       dementia + arthritis + heartdisease + lungdisease,
                 family = "binomial")
 summary(model3)
+
+## checking if the model has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model3.docx")){
+        ## if it hasn't, saving the model for publication
+        model3 %>% 
+                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
+                               label = list(sleepquality ~ "Sleep Quality",
+                                            age ~ "Age",
+                                            bmi ~ "Body Mass Index",
+                                            depression ~ "Depression",
+                                            alcohol ~ "Alcohol",
+                                            fracture ~ "Fracture",
+                                            cancer ~ "Cancer",
+                                            diabetes ~ "Diabetes",
+                                            dementia ~ "Dementia",
+                                            arthritis ~ "Arthritis",
+                                            heartdisease ~ "Heart Disease",
+                                            lungdisease ~ "Lung Disease")) %>% 
+                bold_p() %>%
+                bold_labels() %>%
+                italicize_levels() %>%
+                modify_header(label = "**Variable**") %>%
+                as_gt() %>% 
+                gt::gtsave(filename = "model3.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+}
 ```
 Let's adjust the results and plot the odds ratios.
 
@@ -295,17 +376,71 @@ model3Tidy <- tidy(model3, conf.int = TRUE, exponentiate = TRUE)
 model3Tidy %>% rename(Odds.Ratio = estimate) -> model3Tidy
 model3Tidy
 
-model3Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
-                           xmax = conf.high, height = 0)) +
+## adding the reference terms to the data frame to allow for a better plot
+model3Tidy %>% add_row(term = "sleepqualityVery Bad", Odds.Ratio = -99, std.error = 0, statistic = 0, p.value = 0, conf.low = 0, conf.high = 0, .before = 2) %>%
+        add_row(term = "alcoholNever", Odds.Ratio = -99, std.error = 0, statistic = 0, p.value = 0, conf.low = 0, conf.high = 0, .before = 10) %>%
+        ## filtering the intercept
+        filter (term !="(Intercept)") %>%
+        ## saving the result so that we can refer to it in the next call
+        {. ->> model3Tidy}%>%
+        ## adding a variable to determine whether the observation
+        ## is a reference or not. Initially adding everything as FALSE
+        add_column(.after = "conf.high",
+                   reference = rep(FALSE, length.out = nrow(model3Tidy))) %>%
+        ## now the appropriate ones to TRUE
+        dplyr::mutate(reference = case_when
+               (term %in% c("Very Bad", "Never") ~ TRUE,
+                                     TRUE ~ FALSE)) %>%
+        ## create a Variable column
+        dplyr::mutate(.after= "term",
+                      Variable = case_when(grepl("sleep", term) ~ "Sleep Quality",
+                                           grepl("age", term) ~ "Age",
+                                           grepl("bmi", term) ~ "Body Mass Index",
+                                           grepl("depression",term) ~ "Depression",
+                                           grepl("alcohol",term) ~ "Alcohol",
+                                           grepl("fracture", term) ~ "Fracture",
+                                           grepl("cancer",term) ~ "Cancer",
+                                           grepl("diabetes",term) ~ "Diabetes",
+                                           grepl("dementia", term) ~ "Dementia",
+                                           grepl("arthritis",term) ~ "Arthritis",
+                                           grepl("heart",term) ~ "Heart Disease",
+                                           grepl("lung",term) ~ "Lung Disease")) %>%
+        ## transform the variables to factor
+        dplyr::mutate(Variable = as_factor(Variable)) %>%
+        dplyr::mutate(term = as_factor(term)) -> model3Tidy
+
+
+model3Tidy %>% ggplot (aes(x = Odds.Ratio, y = term, xmin = conf.low,
+                           xmax = conf.high, height = 0, alpha = !reference)) +
                 ## inserting a point for the odds ratio
-                geom_point() +
+                geom_point(aes(alpha = !reference)) +
                 ## drawing a line at the 1 to improve readability
                 geom_vline(xintercept = 1, lty = 4) +
                 ## drawing an horizontal line to represent the 
                 ## confidence interval
                 geom_errorbarh() +
-                scale_y_discrete(
-                        limits = setdiff(model3Tidy$term, "(Intercept)"))
+                scale_y_discrete(labels = labels2) +
+                labs(x = "Odds Ratio", y = "",
+                     title = "Presence of Pain", 
+                subtitle = "Adjusted Odds Ratios") +
+                facet_grid(Variable ~ ., scales = "free_y", space = "free_y") +
+                scale_alpha_identity() +
+                # hide facet labels
+                theme(strip.background = element_blank(),
+                strip.text = element_blank()) +
+                # remove spacing between facets
+                theme(panel.spacing = unit(0, "pt")) +
+                scale_x_continuous(breaks = seq(0,3, by = 0.5),
+                                   limits = (c(0,2.9))) -> plot3
+
+## checking if plot has been saved already
+if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots/plot3.png")){
+        ## if it hasn't, saving the plot for publication
+        ggsave("plot3.png", plot3, 
+               path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/plots") 
+}
+
+plot3
 
 ```
 
