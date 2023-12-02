@@ -221,19 +221,21 @@ model1Tidy
 ## as we will be doing this extensively for each model, creating a function
 ## in order to not repeat the code every time
 tbl_pub <- function(model, path, file, labels){
-        ## checking if the model has been saved already
-        if (!file.exists(paste(path,file,sep = ""))){
-                ## if it hasn't, saving the model for publication
-                model %>% 
+        model %>% 
                         tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
                                        label = labels) %>% 
                         bold_p() %>%
                         bold_labels() %>%
                         italicize_levels() %>%
-                        modify_header(label = "**Variable**") %>%
+                        modify_header(label = "**Variable**") -> tblx
+        ## checking if the model has been saved already
+        if (!file.exists(paste(path,file,sep = ""))){
+                ## if it hasn't, saving the model for publication
+                tblx %>%
                         as_gt() %>% 
                         gt::gtsave(filename = file, path = path)   
         }
+        tblx
 }
 
 ## creating a label list
@@ -688,7 +690,7 @@ model7Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
 
 ```
 
-The presence of pain decreases the odds of a success in sleepqualitydich.
+The presence of pain is associated with decreased odds of a success in sleep quality that is "Fair" or better.
 
 ##### Adjusted Analysis
 
@@ -864,7 +866,7 @@ plot9
 
 ```
 
-The results show us that being male increases the odds of having fair or better sleep quality.
+The results show us that being male is associated with increased odds of having fair or better sleep quality.
 
 ###### Replacing Individual Comorbidities with a Self-Reported General Health Assessment
 
@@ -881,7 +883,7 @@ tbl_pub (model10, tablePath, "model10.docx",
          append(labelList[-c(1,5,6,7,8,9,10,11,12,13)], genhealth ~ "General Health Assessment"))
 ```
 
-While the direction of the effect was the same, when considering the subjects perception of their own general health status instead of comorbidity level, the presence of pain has a lower effect size in decreasing the odds of having sleep quality that is fair or better.
+While the direction of the effect was the same, when considering the subjects perception of their own general health status instead of comorbidity level, the presence of pain has a lower effect size in the association of decreased odds of having sleep quality that is fair or better.
 
 ###### Evaluation of dose-effect relationship between pain and sleep quality
 
@@ -913,4 +915,4 @@ tbl_pub (model12, tablePath, "model12.docx",
 
 ```
 
-Increasing levels of pain intensity also decrease the odds of having fair or better sleep quality.
+Increasing levels of pain intensity are also associated with decreased odds of having fair or better sleep quality.
