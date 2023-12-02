@@ -218,19 +218,47 @@ model1Tidy <- tidy(model1, conf.int = TRUE, exponentiate = TRUE)
 model1Tidy %>% rename(Odds.Ratio = estimate) -> model1Tidy
 model1Tidy
 
-## checking if the model has been saved already
-if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model1.docx")){
-        ## if it hasn't, saving the model for publication
-        model1 %>% 
-                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
-                               label = list(sleepquality ~ "Sleep Quality")) %>% 
-                bold_p() %>%
-                bold_labels() %>%
-                italicize_levels() %>%
-                modify_header(label = "**Variable**") %>%
-                as_gt() %>% 
-                gt::gtsave(filename = "model1.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
+## as we will be doing this extensively for each model, creating a function
+## in order to not repeat the code every time
+tbl_pub <- function(model, path, file, labels){
+        ## checking if the model has been saved already
+        if (!file.exists(paste(path,file,sep = ""))){
+                ## if it hasn't, saving the model for publication
+                model %>% 
+                        tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
+                                       label = labels) %>% 
+                        bold_p() %>%
+                        bold_labels() %>%
+                        italicize_levels() %>%
+                        modify_header(label = "**Variable**") %>%
+                        as_gt() %>% 
+                        gt::gtsave(filename = file, path = path)   
+        }
 }
+
+## creating a label list
+labelList <- list(sleepquality ~ "Sleep Quality",
+                  pain ~ "Pain",
+                  age ~ "Age",
+                  bmi ~ "Body Mass Index",
+                  depression ~ "Depression",
+                  alcohol ~ "Alcohol",
+                  fracture ~ "Fracture",
+                  cancer ~ "Cancer",
+                  diabetes ~ "Diabetes",
+                  dementia ~ "Dementia",
+                  arthritis ~ "Arthritis",
+                  heartdisease ~ "Heart Disease",
+                  lungdisease ~ "Lung Disease",
+                  sex ~ "Sex")
+
+## creating a path variable
+
+tablePath <- "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/"
+
+## creating and saving the publication table
+tbl_pub (model1, tablePath, "model1.docx", labelList[1])
+
 
 ## let's plot these coefficients and their CI's to increase
 ## readability
@@ -348,30 +376,8 @@ model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + age + bmi +
                 family = "binomial")
 summary(model3)
 
-## checking if the model has been saved already
-if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model3.docx")){
-        ## if it hasn't, saving the model for publication
-        model3 %>% 
-                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
-                               label = list(sleepquality ~ "Sleep Quality",
-                                            age ~ "Age",
-                                            bmi ~ "Body Mass Index",
-                                            depression ~ "Depression",
-                                            alcohol ~ "Alcohol",
-                                            fracture ~ "Fracture",
-                                            cancer ~ "Cancer",
-                                            diabetes ~ "Diabetes",
-                                            dementia ~ "Dementia",
-                                            arthritis ~ "Arthritis",
-                                            heartdisease ~ "Heart Disease",
-                                            lungdisease ~ "Lung Disease")) %>% 
-                bold_p() %>%
-                bold_labels() %>%
-                italicize_levels() %>%
-                modify_header(label = "**Variable**") %>%
-                as_gt() %>% 
-                gt::gtsave(filename = "model3.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
-}
+## creating and saving publication-ready table
+tbl_pub (model3, tablePath, "model3.docx", labelList[-c(2,14)])
 ```
 Let's adjust the results and plot the odds ratios.
 
@@ -661,19 +667,8 @@ Let's proceed with the unadjusted analysis with sleepquality as a dichotomous va
 model7 <- glm(sleepqualitydich ~ pain, "binomial", data = PPCRdata)
 summary(model7)
 
-## checking if the model has been saved already
-if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model7.docx")){
-        ## if it hasn't, saving the model for publication
-        model7 %>% 
-                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
-                               label = list(pain ~ "Pain")) %>% 
-                bold_p() %>%
-                bold_labels() %>%
-                italicize_levels() %>%
-                modify_header(label = "**Variable**") %>%
-                as_gt() %>% 
-                gt::gtsave(filename = "model7.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
-}
+## creating and saving table for publication
+tbl_pub (model7, tablePath, "model7.docx", labelList[2])
 
 model7Tidy <- tidy(model7, conf.int = TRUE, exponentiate = TRUE)
 model7Tidy %>% rename(Odds.Ratio = estimate) -> model7Tidy
@@ -704,30 +699,8 @@ model8 <- glm(sleepqualitydich ~ pain + age + bmi + depression + alcohol +
                       heartdisease + lungdisease, "binomial", data = PPCRdata)
 summary(model8)
 
-## checking if the model has been saved already
-if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model8.docx")){
-        ## if it hasn't, saving the model for publication
-        model8 %>% 
-                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
-                               label = list(pain ~ "Pain",
-                                            age ~ "Age",
-                                            bmi ~ "Body Mass Index",
-                                            depression ~ "Depression",
-                                            alcohol ~ "Alcohol",
-                                            fracture ~ "Fracture",
-                                            cancer ~ "Cancer",
-                                            diabetes ~ "Diabetes",
-                                            dementia ~ "Dementia",
-                                            arthritis ~ "Arthritis",
-                                            heartdisease ~ "Heart Disease",
-                                            lungdisease ~ "Lung Disease")) %>% 
-                bold_p() %>%
-                bold_labels() %>%
-                italicize_levels() %>%
-                modify_header(label = "**Variable**") %>%
-                as_gt() %>% 
-                gt::gtsave(filename = "model8.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
-}
+## creating and saving table for publication
+tbl_pub (model8, tablePath, "model8.docx", labelList[-c(1,14)])
 
 model8Tidy <- tidy(model8, conf.int = TRUE, exponentiate = TRUE)
 model8Tidy %>% rename(Odds.Ratio = estimate) -> model8Tidy
@@ -819,31 +792,8 @@ model9 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>%
 
 model9Tidy
 
-## checking if the model has been saved already
-if (!file.exists("C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/model9.docx")){
-        ## if it hasn't, saving the model for publication
-        model9 %>% 
-                tbl_regression(exponentiate = TRUE, conf.int = TRUE, 
-                               label = list(pain ~ "Pain",
-                                            age ~ "Age",
-                                            bmi ~ "Body Mass Index",
-                                            depression ~ "Depression",
-                                            alcohol ~ "Alcohol",
-                                            fracture ~ "Fracture",
-                                            cancer ~ "Cancer",
-                                            diabetes ~ "Diabetes",
-                                            dementia ~ "Dementia",
-                                            arthritis ~ "Arthritis",
-                                            heartdisease ~ "Heart Disease",
-                                            lungdisease ~ "Lung Disease",
-                                            sex ~ "Sex")) %>% 
-                bold_p() %>%
-                bold_labels() %>%
-                italicize_levels() %>%
-                modify_header(label = "**Variable**") %>%
-                as_gt() %>% 
-                gt::gtsave(filename = "model9.docx", path = "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables")
-}
+## creating and saving table for publication
+tbl_pub (model9, tablePath, "model9.docx", labelList[-1])
 
 ## adding the reference terms to the data frame to allow for a better plot
 model9Tidy %>% 
@@ -927,10 +877,13 @@ model10 <- glm(sleepqualitydich ~ pain + genhealth + age + bmi + sex, "binomial"
 model10 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
         rename(Odds.Ratio = estimate) -> model10Tidy
 
-model10 %>% tbl_regression(exponentiate = TRUE, conf.int = TRUE)
+tbl_pub (model10, tablePath, "model10.docx",
+         append(labelList[-c(1,5,6,7,8,9,10,11,12,13)], genhealth ~ "General Health Assessment"))
 ```
 
 While the direction of the effect was the same, when considering the subjects perception of their own general health status instead of comorbidity level, the presence of pain has a lower effect size in decreasing the odds of having sleep quality that is fair or better.
+
+###### Evaluation of dose-effect relationship between pain and sleep quality
 
 We can also take a look at the subset of patients that have pain to see if sleep quality is worse with increasing levels of pain
 
@@ -942,7 +895,8 @@ model11 <- glm(sleepqualitydich ~ p_intensity,
 model11 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
         rename(Odds.Ratio = estimate) -> model11Tidy
 
-model11 %>% tbl_regression(exponentiate = TRUE, conf.int = TRUE)
+tbl_pub(model11, tablePath, "model11.docx",
+        list(p_intensity ~ "Pain Intensity"))
 
 ## adjusted
 model12 <- glm(sleepqualitydich ~ p_intensity + age + bmi + depression + alcohol +
@@ -952,9 +906,10 @@ model12 <- glm(sleepqualitydich ~ p_intensity + age + bmi + depression + alcohol
     family = "binomial")
 
 model12 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
-        rename(Odds.Ratio = estimate) -> model11Tidy
+        rename(Odds.Ratio = estimate) -> model12Tidy
 
-model12 %>% tbl_regression(exponentiate = TRUE, conf.int = TRUE)
+tbl_pub (model12, tablePath, "model12.docx",
+         append(labelList[-c(1,2,14)], p_intensity ~ "Pain Intensity"))
 
 ```
 
