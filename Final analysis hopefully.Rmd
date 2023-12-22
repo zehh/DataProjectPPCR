@@ -259,7 +259,7 @@ labelList <- list(sleepquality ~ "Sleep Quality",
 tablePath <- "C:/Users/Pedro Henrique/Documents/PPCR/Data Analysis Project/DataProjectPPCR/tables/"
 
 ## creating and saving the publication table
-tbl_pub (model1, tablePath, "model1.docx", labelList[1])
+tbl_pub (model1, tablePath, "model1.docx", labelList[1]) -> tbl1
 
 
 ## let's plot these coefficients and their CI's to increase
@@ -292,6 +292,8 @@ labels2 <-c("sleepqualityVery good" = "Sleep Quality: Very Good",
             "painYes" = "Pain",
             "sexMale" = "Male")
 
+## creating a plot
+
 model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                            xmax = conf.high, height = 0)) +
                 ## inserting a point for the odds ratio
@@ -307,7 +309,8 @@ model1Tidy %>% ggplot (aes(Odds.Ratio, term, xmin = conf.low,
                         labels = labels1) +
                 labs(x = "Odds Ratio", y = "Sleep Quality",
                      title = "Presence of Pain", 
-                subtitle = "Unadjusted odds ratio, in comparison to \"Very Bad\" Sleep Quality") +
+                subtitle = "Unadjusted odds ratio, in comparison to \"Very Bad\" Sleep Quality",
+                caption = paste("N =", nobs(model1))) +
                 ## adjusting the ticks on the x axis and its range
                 scale_x_continuous (breaks = seq(0,1.2,0.2),
                                     limits = c(0,1.2)) -> plot1
@@ -379,7 +382,14 @@ model3 <- glm(data = PPCRdata, formula = pain ~ sleepquality + age + bmi +
 summary(model3)
 
 ## creating and saving publication-ready table
-tbl_pub (model3, tablePath, "model3.docx", labelList[-c(2,14)])
+tbl_pub (model3, tablePath, "model3.docx", labelList[-c(2,14)]) -> tbl3
+
+tbl_merge(list(tbl1,tbl3),
+          tab_spanner = c("**Unadjusted**", "**Adjusted**")) -> merged1
+
+if(!file.exists(paste(tablePath,"merged1.docx", sep=""))){
+        merged1 %>% as_gt() %>% gt::gtsave(filename = "merged1.docx", path = tablePath)
+}
 ```
 Let's adjust the results and plot the odds ratios.
 
@@ -435,7 +445,8 @@ model3Tidy %>% ggplot (aes(x = Odds.Ratio, y = term, xmin = conf.low,
                 scale_y_discrete(labels = labels2) +
                 labs(x = "Odds Ratio", y = "",
                      title = "Presence of Pain", 
-                subtitle = "Adjusted Odds Ratios") +
+                subtitle = "Adjusted Odds Ratios",
+                caption = paste("N =", nobs(model3))) +
                 facet_grid(Variable ~ ., scales = "free_y", space = "free_y") +
                 scale_alpha_identity() +
                 # hide facet labels
@@ -670,7 +681,7 @@ model7 <- glm(sleepqualitydich ~ pain, "binomial", data = PPCRdata)
 summary(model7)
 
 ## creating and saving table for publication
-tbl_pub (model7, tablePath, "model7.docx", labelList[2])
+tbl_pub (model7, tablePath, "model7.docx", labelList[2]) -> tbl7
 
 model7Tidy <- tidy(model7, conf.int = TRUE, exponentiate = TRUE)
 model7Tidy %>% rename(Odds.Ratio = estimate) -> model7Tidy
@@ -702,7 +713,50 @@ model8 <- glm(sleepqualitydich ~ pain + age + bmi + depression + alcohol +
 summary(model8)
 
 ## creating and saving table for publication
-tbl_pub (model8, tablePath, "model8.docx", labelList[-c(1,14)])
+tbl_pub (model8, tablePath, "model8.docx", labelList[-c(1,14)]) -> tbl8
+
+## creating merged table for adjusted and unadjusted analysis together
+tbl_merge(list(tbl7,tbl8),
+          tab_spanner = c("**Unadjusted**", "**Adjusted**")) -> merged2
+
+if(!file.exists(paste(tablePath,"merged2.docx", sep=""))){
+        merged2 %>% as_gt() %>% gt::gtsave(filename = "merged2.docx", path = tablePath)
+}
+
+## creating a table that has the four models together
+tbl_merge(list(merged1,merged2)) %>%
+        as_gt() %>% gt::tab_spanner(label = gt::md("**Unadjusted**"),
+                                    columns = matches("_1_1"),
+                                    replace = TRUE,
+                                    level = 1,
+                                    id = "unadjusted1") %>%
+        gt::tab_spanner(label = gt::md("**Adjusted**"),
+                        columns = matches("_2_1"),
+                        replace = TRUE,
+                        level = 1,
+                        id = "adjusted1") %>%
+        gt::tab_spanner(label = gt::md("**Unadjusted**"),
+                                    columns = matches("_1_2"),
+                                    replace = TRUE,
+                                    level = 1,
+                                    id = "unadjusted2") %>%
+        gt::tab_spanner(label = gt::md("**Adjusted**"),
+                        columns = matches("_2_2"),
+                        replace = TRUE,
+                        level = 1,
+                        id = "adjusted2") %>%
+        gt::tab_spanner(label = gt::md("**Outcome: Pain**"),
+                        spanners = c("unadjusted1","adjusted1"),
+                        level = 2) %>%
+        gt::tab_spanner(label = gt::md("**Outcome: Sleep Quality**"),
+                        spanners = c("unadjusted2", "adjusted2"),
+                        level = 2) -> merged3 
+
+if(!file.exists(paste(tablePath,"merged3.docx", sep=""))){
+        merged3 %>% gt::gtsave(filename = "merged3.docx", path = tablePath)
+}
+
+merged3
 
 model8Tidy <- tidy(model8, conf.int = TRUE, exponentiate = TRUE)
 model8Tidy %>% rename(Odds.Ratio = estimate) -> model8Tidy
@@ -754,7 +808,8 @@ model8Tidy %>% ggplot (aes(x = Odds.Ratio, y = term, xmin = conf.low,
                 scale_y_discrete(labels = labels2) +
                 labs(x = "Odds Ratio", y = "",
                      title = "Sleep Quality being Fair or Better", 
-                subtitle = "Adjusted Odds Ratios") +
+                subtitle = "Adjusted Odds Ratios",
+                caption = paste("N =", nobs(model8))) +
                 facet_grid(Variable ~ ., scales = "free_y", space = "free_y") +
                 scale_alpha_identity() +
                 # hide facet labels
@@ -843,7 +898,8 @@ model9Tidy %>% ggplot (aes(x = Odds.Ratio, y = term, xmin = conf.low,
                 scale_y_discrete(labels = labels2) +
                 labs(x = "Odds Ratio", y = "",
                      title = "Sleep Quality being Fair or Better", 
-                subtitle = "Adjusted Odds Ratios") +
+                subtitle = "Adjusted Odds Ratios",
+                caption = paste("N =", nobs(model3))) +
                 facet_grid(Variable ~ ., scales = "free_y", space = "free_y") +
                 scale_alpha_identity() +
                 # hide facet labels
@@ -887,7 +943,7 @@ While the direction of the effect was the same, when considering the subjects pe
 
 ###### Evaluation of dose-effect relationship between pain and sleep quality
 
-We can also take a look at the subset of patients that have pain to see if sleep quality is worse with increasing levels of pain
+We can also take a look at the subset of patients that have pain to see if sleep quality is worse with increasing levels of pain.
 
 ```{r}
 ## unadjusted
@@ -898,10 +954,10 @@ model11 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>%
         rename(Odds.Ratio = estimate) -> model11Tidy
 
 tbl_pub(model11, tablePath, "model11.docx",
-        list(p_intensity ~ "Pain Intensity"))
+        list(p_intensity ~ "Pain Intensity")) -> tbl11
 
 ## adjusted
-model12 <- glm(sleepqualitydich ~ p_intensity + age + bmi + depression + alcohol +
+model12 <- glm(sleepqualitydich ~ p_intensity + age + bmi + sex + depression + alcohol +
          fracture + cancer + diabetes + dementia + arthritis +
          heartdisease + lungdisease,
     data = filter(PPCRdata, pain == "Yes"),
@@ -911,7 +967,16 @@ model12 %>% tidy(conf.int = TRUE, exponentiate = TRUE) %>%
         rename(Odds.Ratio = estimate) -> model12Tidy
 
 tbl_pub (model12, tablePath, "model12.docx",
-         append(labelList[-c(1,2,14)], p_intensity ~ "Pain Intensity"))
+         append(labelList[-c(1,2)], p_intensity ~ "Pain Intensity")) -> tbl12
+
+tbl_merge(list(tbl11,tbl12),
+          tab_spanner = c("**Unadjusted**", "**Adjusted**")) -> merged4
+
+if(!file.exists(paste(tablePath,"merged4.docx", sep=""))){
+        merged4 %>% as_gt() %>% gt::gtsave(filename = "merged4.docx", path = tablePath)
+}
+
+merged4
 
 ```
 
